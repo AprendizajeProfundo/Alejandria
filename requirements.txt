@@ -8,3 +8,4 @@ torchmetrics
 pytorch-lightning
 scipy
 scikit-learn
+tensorflow
