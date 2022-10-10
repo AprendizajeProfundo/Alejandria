@@ -9,3 +9,7 @@ pytorch-lightning
 scipy
 scikit-learn
 tensorflow
+graphviz
+pydot
+ipympl
+ffmpeg
