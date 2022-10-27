@@ -8,6 +8,7 @@ torchmetrics
 pytorch-lightning
 scipy
 scikit-learn
+scikit-image
 tensorflow
 graphviz
 pydot
