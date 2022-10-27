@@ -1,7 +1,7 @@
 torch
 torchvision
 matplotlib
-numpy
+numpy==1.16.5
 pandas
 tensorboard
 torchmetrics
