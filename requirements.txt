@@ -16,3 +16,5 @@ ipympl
 ffmpeg
 jax[cpu]
 opencv-python-headless
+gym
+ptan
