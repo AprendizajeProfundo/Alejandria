@@ -1,0 +1,9 @@
+# ignorar archivos con extensiones definidas
+
+*.env
+*.DS_Store
+
+# Ignorar checkpoints de notebooks
+
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/**
