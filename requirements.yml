@@ -1,0 +1,36 @@
+name: alejandria
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - ipywidgets
+  - jupyterlab
+  - pandas
+  - pip:
+    - dash
+    - groq
+    - graphviz
+    - hdbscan
+    - ipympl
+    - jupyter-book
+    - matplotlib
+    - mpl-tools
+    - ollama
+    - openai
+    - pillow
+    - plotly
+    - PyMuPDF
+    - pydot
+    - python-docx
+    - python-dotenv
+    - scikit-learn
+    - scipy
+    - seaborn
+    - sentence-transformers
+    - sqlalchemy
+    - statsmodels
+    - streamlit
+    - tqdm
+    - umap-learn
+    - umap-learn[plot]
