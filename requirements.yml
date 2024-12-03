@@ -8,9 +8,13 @@ dependencies:
   - jupyterlab
   - pandas
   - pip:
+    - autogen-agentchat~=0.2
+    - dask[dataframe]
     - dash
     - groq
+    - flaml[automl]
     - graphviz
+    - google-search-results
     - hdbscan
     - ipympl
     - jupyter-book
