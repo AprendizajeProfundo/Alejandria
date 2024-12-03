@@ -1,0 +1,1 @@
+http://export.arxiv.org/api/query?search_query={type_query}:{query}&start={start}&max_results={max_results}&sortBy={sortby}&sortOrder={sortorder}
