@@ -25,6 +25,7 @@ dependencies:
     - pillow
     - plotly
     - PyMuPDF
+    - pyautogen[ollama]
     - pydot
     - python-docx
     - python-dotenv
