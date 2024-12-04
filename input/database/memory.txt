@@ -1,0 +1,17 @@
+Aquí deberían ir los parámetros, tópicos y demás cosas que ya el humano/modelo ha sugerido. Por ejemplo:
+
+Humano:
+
+- RAG
+- Agents AI
+- Knowledge Graphs
+
+LLM:
+
+- SciAgents
+- Chunk Strategies
+- Vision Models
+
+Entonces, aquí deberían ir todas esas cosas que ya se han sugerido para que el modelo sepa si quiere agregar nuevas cosas o no.
+
+También deberían agregarse luego de hacer el minado, extrayendo keywords de los artículo para hacer las trazas de las líneas de investigacion.
