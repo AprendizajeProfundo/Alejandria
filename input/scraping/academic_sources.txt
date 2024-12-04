@@ -1,1 +1,9 @@
 http://export.arxiv.org/api/query?search_query={type_query}:{query}&start={start}&max_results={max_results}&sortBy={sortby}&sortOrder={sortorder}
+https://towardsdatascience.com/search?q={query}
+#SerpApi
+params = {
+  "api_key": os.environ["GOOGLE_SCHOLAR_API_KEY"],
+  "engine": "google_scholar",
+  "q": "RAG AI",
+  "hl": "en"
+}
