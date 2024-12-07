@@ -24,8 +24,8 @@ dependencies:
     - openai
     - pillow
     - plotly
-    - PyMuPDF
     - pyautogen[ollama]
+    - PyMuPDF
     - pydot
     - python-docx
     - python-dotenv
