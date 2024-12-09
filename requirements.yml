@@ -8,6 +8,7 @@ dependencies:
   - jupyterlab
   - pandas
   - pip:
+    - aiohttp
     - autogen-agentchat~=0.2
     - dask[dataframe]
     - dash
@@ -22,6 +23,7 @@ dependencies:
     - mpl-tools
     - ollama
     - openai
+    - openpyxl
     - pillow
     - plotly
     - pyautogen[ollama]
