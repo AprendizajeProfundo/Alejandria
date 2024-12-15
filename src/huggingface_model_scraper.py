@@ -1,14 +1,17 @@
-
 import pandas as pd
 from huggingface_hub import HfApi
 from tqdm import tqdm
+from transformers import AutoConfig
+from joblib import Parallel, delayed
+import multiprocessing
 
 class HuggingFaceModelScraper:
-    def __init__(self):
+    def __init__(self, previous_data):
         """Initialize the Hugging Face API client."""
         self.api = HfApi()
         self.models = []
         self.processed_data = []
+        self.previous_data = previous_data
 
     def get_model_list(self):
         """Fetch the list of models from Hugging Face."""
@@ -26,11 +29,9 @@ class HuggingFaceModelScraper:
                 'task': model.pipeline_tag,
                 'created_at': model.created_at,
                 'downloads': model.downloads,
-                'downloads_all_time': model.downloads_all_time,
                 'tags': model.tags,
                 'likes': model.likes,
                 'library_name': model.library_name,
-                #'trending_score': model.trending_score,
             })
 
     @staticmethod
@@ -38,16 +39,29 @@ class HuggingFaceModelScraper:
         try:
             config = AutoConfig.from_pretrained(model_id)
             return config.to_json_string()
-        except:
+        except Exception:
             return None
 
-    @staticmethod    
+    @staticmethod
     def get_readme(model_id):
+        from huggingface_hub import hf_hub_download
+
         try:
-            readme = hf_hub_download(model_id, filename='README.md')
-            return readme
-        except:
+            readme_path = hf_hub_download(repo_id=model_id, filename='README.md')
+            with open(readme_path, 'r') as file:
+                return file.read()
+        except Exception:
             return None
+        
+    def parallel_get_config(self, data):
+        num_cores = multiprocessing.cpu_count()
+        results = Parallel(n_jobs=num_cores)(delayed(self.get_config)(model) for model in tqdm(data['id'], desc='Getting config files', total=len(data)))
+        return results
+
+    def parallel_get_readme(self, data):
+        num_cores = multiprocessing.cpu_count()
+        results = Parallel(n_jobs=num_cores)(delayed(self.get_readme)(model) for model in tqdm(data['id'], desc='Getting readmes', total=len(data)))
+        return results
 
     def to_dataframe(self):
         """Convert the processed data into a pandas DataFrame."""
@@ -56,11 +70,43 @@ class HuggingFaceModelScraper:
 
         return pd.DataFrame(self.processed_data)
 
+def main(input_path, output_path):
+    # Load previous data if available
+    try:
+        previous_data = pd.read_csv(input_path)
+    except FileNotFoundError:
+        previous_data = pd.DataFrame(columns=['id'])
 
-# Example usage (comment out for use as a library):
-# if __name__ == "__main__":
-#     scraper = HuggingFaceModelScraper()
-#     scraper.get_model_list()
-#     scraper.process_models()
-#     df = scraper.to_dataframe()
-#     df.to_csv("huggingface_models.csv", index=False)
+    scraper = HuggingFaceModelScraper(previous_data=previous_data)
+
+    # Step 1: Get the list of models
+    scraper.get_model_list()
+
+    # Step 2: Process the models
+    scraper.process_models()
+    new_data = scraper.to_dataframe()
+
+    # Step 3: Identify new models
+    new_models = new_data[~new_data['id'].isin(previous_data['id'])]
+
+    if new_models.empty:
+        print("No new models to process.")
+        return
+
+    # Step 4: Fetch config and README files in parallel
+    configs = scraper.parallel_get_config(new_models)
+    readmes = scraper.parallel_get_readme(new_models)
+
+    # Step 5: Add config and README to the data
+    new_models['config'] = configs
+    new_models['readme'] = readmes
+
+    # Step 6: Combine new data with previous data
+    combined_data = pd.concat([previous_data, new_models], ignore_index=True)
+
+    # Step 7: Save the updated data
+    combined_data.to_csv(output_path, index=False)
+    print("Data updated and saved.")
+
+if __name__ == "__main__":
+    main()
