@@ -28,6 +28,7 @@ dependencies:
     - plotly
     - pyautogen[ollama]
     - PyMuPDF
+    - PyPDF2
     - pydot
     - python-docx
     - python-dotenv
@@ -38,6 +39,7 @@ dependencies:
     - sqlalchemy
     - statsmodels
     - streamlit
+    - streamlit-aggrid
     - tqdm
     - umap-learn
     - umap-learn[plot]
