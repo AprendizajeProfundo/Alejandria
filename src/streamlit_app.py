@@ -9,8 +9,11 @@ from nbconvert import HTMLExporter
 from nbconvert.preprocessors import ExecutePreprocessor
 
 from agent_arxiv import ArxivAgent
+from agent_summarizer import summarize_pdf
+from agent_congruence import check_congruence
 from agent_manager import AgentManager, download_pdf
-from agent_filter import process_pdf
+from agent_filter import join_ideas
+
 
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode
 
@@ -109,10 +112,10 @@ def main():
                 st.markdown(f"**Link del artículo:** {art['link_article']}")
                 st.markdown("---")
 
-    # ---------- Fase 2.5: Extraer Secciones (Descarga y procesamiento de PDFs) ----------
+    # ---------- Fase 2.5: Extraer Ideas (Descarga y Extracción de ideas y conceptos de PDFs) ----------
     if st.session_state.get("selected_articles"):
-        st.header("2.5. Extraer Secciones")
-        if st.button("Extraer Secciones"):
+        st.header("2.5. Extraer Ideas y Conceptos")
+        if st.button("Extraer Ideas y conceptos"):
             pdf_results = {}
             for art in st.session_state["selected_articles"]:
                 pdf_url = art["pdf_link"]
@@ -122,9 +125,9 @@ def main():
                         pdf_folder = "../input/papers"
                         pdf_path = download_pdf(pdf_url, pdf_folder, filename)
                         st.info(f"PDF descargado para {art['title']}: {pdf_path}")
-                        with st.expander("Streaming del Chain-of-Thought"):
+                        with st.expander(f"Streaming de {art['title']}"):
                             llm_placeholder = st.empty()  # Placeholder para actualizar en streaming
-                            result = process_pdf(pdf_path, stream_placeholder=llm_placeholder)
+                            result = summarize_pdf(pdf_path, stream_placeholder=llm_placeholder)
                             pdf_results[art["link_article"]] = result
                     except Exception as e:
                         st.error(f"Error procesando PDF para {art['title']}: {e}")
@@ -133,10 +136,62 @@ def main():
             st.session_state["pdf_results"] = pdf_results
             print(pdf_results)
 
+    # ---------- Fase 2.6: Medir congruencias entre Secciones (Comparación de ideas) ----------
+    if st.session_state.get("pdf_results"):
+        st.header("2.6. Evaluar Congruencia entre Artículos")
+        if st.button("Comparar Ideas y Conceptos"):
+            from agent_congruence import check_congruence
+            with st.spinner("Comparando ideas y conceptos..."):
+                cong_placeholder = st.empty()
+                congruence_result = check_congruence(st.session_state["pdf_results"], stream_placeholder=cong_placeholder)
+                st.session_state["congruence_result"] = congruence_result
+            st.success("Comparación completada.")
+            #with st.expander("Ver Resultado de Congruencia"):
+                #st.json(st.session_state["congruence_result"])
+            
+    # ---------- Fase 2.7: Construir JSON de Notebook con info Consolidada ----------
+    if (st.session_state.get("selected_articles") and 
+        st.session_state.get("pdf_results") and 
+        st.session_state.get("congruence_result")):
+        st.header("Consolidar Información y Generar Notebook Final")
+        if st.button("Consolidar Información y Generar Notebook Final"):
+            # Construir el texto unificado consolidado
+            unified_text = "### Material Educativo Consolidado\n\n"
+            cong = st.session_state["congruence_result"]
+            unified_text += f"**Conclusión de Congruencia:** {cong.get('conclusion', 'No se encontró relación')}\n\n"
+            unified_text += f"**Detalles:** {cong.get('details', '')}\n\n"
+            for art in st.session_state["selected_articles"]:
+                art_id = art["link_article"]
+                summary = st.session_state["pdf_results"].get(art_id, {})
+                unified_text += f"## {art['title']}\n\n"
+                # Recorrer cada clave del resumen extraído
+                for key, values in summary.items():
+                    if key.lower() != "chain_of_thought":  # en caso de existir
+                        if isinstance(values, list):
+                            unified_text += f"**{key.capitalize()}:** {', '.join(values)}\n\n"
+                        else:
+                            unified_text += f"**{key.capitalize()}:** {values}\n\n"
+                # Agregar un ejemplo de código para ejemplificar la implementación
+                unified_text += "\n```python\n# Ejemplo de implementación:\nprint('Ejemplo de código para material educativo')\n```\n\n"
+            st.session_state["unified_text"] = unified_text
+            st.success("Información consolidada.")
+            with st.expander("Ver Texto Unificado"):
+                st.text_area("Texto Unificado", unified_text, height=300)
+
+            with st.spinner("Generando Notebook..."):
+                cong_placeholder = st.empty()
+                notebook_json = join_ideas(st.session_state["unified_text"], stream_placeholder=cong_placeholder)
+                print(notebook_json)
+                st.session_state["notebook_json"] = notebook_json
+                
+
     # ---------- Fase 3: Generar Notebook Consolidado ----------
-    if st.session_state.get("selected_articles") and st.session_state.get("pdf_results"):
+    if (st.session_state.get("selected_articles") and 
+    st.session_state.get("pdf_results") and
+    st.session_state.get("notebook_json")):
         st.header("3. Generar Notebook Consolidado")
         if st.button("Generar Notebook Consolidado"):
+            # Mapeo de repositorios (opcional)
             github_mapping = {}
             for art in st.session_state["selected_articles"]:
                 key = art["link_article"]
@@ -144,26 +199,32 @@ def main():
                     github_mapping[key] = art["github_link"]
                 else:
                     github_mapping[key] = None
-
+    
             manager = AgentManager()
+            print(st.session_state["notebook_json"])
             with st.spinner("Generando notebook consolidado..."):
-                nb_json, logs = manager.run_pipeline_multi(st.session_state["selected_articles"], github_mapping, pdf_results=st.session_state["pdf_results"])
+                # Usar la variable nb_json que se retorna
+                nb_json, logs = manager.run_pipeline_multi(
+                    st.session_state["selected_articles"],
+                    github_mapping,
+                    notebook_json=st.session_state["notebook_json"]
+                )
                 nb_json = execute_notebook(nb_json)
                 notebook_filename = "Alejandria_Notebook_Consolidado.ipynb"
                 with open(notebook_filename, "w", encoding="utf-8") as f:
                     nbformat.write(nb_json, f)
                 st.success("Notebook generado y ejecutado exitosamente.")
-                
+    
                 html_body = generate_html_from_notebook(nb_json)
                 st.subheader("Notebook Renderizado")
                 st.components.v1.html(html_body, height=800, scrolling=True)
-                
+    
                 file_buffer = io.StringIO()
                 nbformat.write(nb_json, file_buffer)
                 notebook_str = file_buffer.getvalue()
                 st.download_button("Descargar Notebook (.ipynb)", notebook_str,
                                    file_name=notebook_filename, mime="application/json")
-                
+    
                 st.subheader("Eventos del Proceso")
                 for log in logs:
                     st.text(log)
