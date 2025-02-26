@@ -2,8 +2,9 @@
 import os
 import time
 import nbformat
+import json
 from agent_github import GitHubAgent
-from notebook_generator import create_notebook_json
+from notebook_generator import create_notebook_json  # (opcional, si lo usas)
 
 def download_pdf(pdf_url, output_folder, filename):
     """
@@ -35,8 +36,8 @@ class AgentManager:
     def convert_cell(self, cell_dict):
         """
         Convierte un diccionario que representa una celda en un objeto NotebookNode.
-        Si la propiedad "source" es una lista, se une en un solo string.
-        Se espera que cell_dict tenga al menos la clave "cell_type" y "source".
+        Si la propiedad "source" es una lista, la une en un solo string.
+        Se espera que cell_dict tenga al menos las claves "cell_type" y "source".
         """
         source = cell_dict.get("source", "")
         if isinstance(source, list):
@@ -51,46 +52,46 @@ class AgentManager:
             cell.id = cell_dict["id"]
         return cell
 
-    def run_pipeline_multi(self, selected_articles, github_mapping, pdf_results=None):
+    def run_pipeline_multi(self, selected_articles, github_mapping, notebook_json=None):
         """
-        Procesa los artículos seleccionados:
-         - Si existe en pdf_results un JSON con la estructura del notebook, se extraen sus "cells"
-           y se convierten a NotebookNode; de lo contrario, se usa el resumen como celda markdown.
-         - Se integra opcionalmente el contenido de GitHub.
-         - Se construye un notebook consolidado y se retorna junto con los logs.
+        Procesa los artículos seleccionados para construir el notebook final.
+        Si se proporciona notebook_json (un único JSON con la clave "cells"),
+        se convierte directamente a NotebookNode; de lo contrario, se genera a partir
+        de los resúmenes de cada artículo.
         """
         self.log_event("Iniciando pipeline de Alejandría para múltiples artículos.")
         combined_cells = []
         
-        for article in selected_articles:
-            self.log_event(f"Procesando artículo: {article['title']}")
-            if pdf_results and article["link_article"] in pdf_results:
-                article_notebook = pdf_results.get(article["link_article"])
-                if article_notebook and "cells" in article_notebook and article_notebook["cells"]:
-                    num_cells = len(article_notebook["cells"])
-                    self.log_event(f"Integradas {num_cells} celdas del artículo {article['title']}.")
-                    for cell_dict in article_notebook["cells"]:
-                        combined_cells.append(self.convert_cell(cell_dict))
-                else:
-                    self.log_event(f"No se encontraron celdas en el JSON extraído para {article['title']}, usando resumen.")
-                    combined_cells.append(nbformat.v4.new_markdown_cell("Resumen: " + article.get("summary", "")))
-            else:
-                self.log_event(f"No se extrajo notebook para {article['title']}, usando resumen.")
+        if notebook_json is not None and isinstance(notebook_json, dict) and "cells" in notebook_json:
+            self.log_event("Se encontró un JSON unificado del agente de filtrado. Procesando sus celdas...")
+            for cell_dict in notebook_json["cells"]:
+                # Asegurarse de que cada celda sea un diccionario
+                if not isinstance(cell_dict, dict):
+                    try:
+                        cell_dict = json.loads(cell_dict)
+                    except Exception as e:
+                        self.log_event(f"Error parseando celda: {e}")
+                        continue
+                combined_cells.append(self.convert_cell(cell_dict))
+        else:
+            # Fallback: usar resúmenes de cada artículo
+            for article in selected_articles:
+                self.log_event(f"No se proporcionó JSON unificado para {article['title']}; usando resumen.")
                 combined_cells.append(nbformat.v4.new_markdown_cell("Resumen: " + article.get("summary", "")))
-            
-            chosen_github = github_mapping.get(article["link_article"].rstrip("/"))
-            if chosen_github:
-                try:
-                    self.log_event(f"Recuperando contenido de GitHub para {article['title']} desde {chosen_github}...")
-                    owner, repo = self.parse_github_link(chosen_github)
-                    gh_agent = GitHubAgent(owner, repo)
-                    github_readme = gh_agent.fetch_readme()
-                    combined_cells.append(nbformat.v4.new_markdown_cell(github_readme))
-                    self.log_event("Contenido de GitHub integrado correctamente.")
-                except Exception as e:
-                    self.log_event(f"Error al recuperar contenido de GitHub para {article['title']}: {e}")
-            else:
-                self.log_event(f"No se integró repositorio GitHub para {article['title']}.")
+                # Integrar GitHub (opcional)
+                chosen_github = github_mapping.get(article["link_article"].rstrip("/"))
+                if chosen_github:
+                    try:
+                        self.log_event(f"Recuperando contenido de GitHub para {article['title']} desde {chosen_github}...")
+                        owner, repo = self.parse_github_link(chosen_github)
+                        gh_agent = GitHubAgent(owner, repo)
+                        github_readme = gh_agent.fetch_readme()
+                        combined_cells.append(nbformat.v4.new_markdown_cell(github_readme))
+                        self.log_event("Contenido de GitHub integrado correctamente.")
+                    except Exception as e:
+                        self.log_event(f"Error al recuperar contenido de GitHub para {article['title']}: {e}")
+                else:
+                    self.log_event(f"No se integró repositorio GitHub para {article['title']}.")
         
         self.log_event("Construyendo notebook consolidado...")
         nb = nbformat.v4.new_notebook()
@@ -120,8 +121,8 @@ class AgentManager:
             return owner, repo
         return None, None
 
-# Prueba de AgentManager (para testeo independiente)
 if __name__ == "__main__":
+    # Prueba de AgentManager
     sample_articles = [{
         "title": "Artículo de Ejemplo",
         "published": "2020-01-01T00:00:00Z",
@@ -135,35 +136,34 @@ if __name__ == "__main__":
         "github_status": "OK",
     }]
     github_mapping = {"http://arxiv.org/abs/0000.0000v1": "https://github.com/octocat/Hello-World"}
-    pdf_results = {
-        "http://arxiv.org/abs/0000.0000v1": {
-            "cells": [
-                {
-                    "cell_type": "markdown",
-                    "id": "abc123",
-                    "metadata": {},
-                    "source": [
-                        "### Artículo de Ejemplo\n\nContenido extraído del paper en español."
-                    ]
-                }
-            ],
-            "metadata": {
-                "kernelspec": {
-                    "display_name": "Python 3 (ipykernel)",
-                    "language": "python",
-                    "name": "python3"
-                },
-                "language_info": {
-                    "name": "python",
-                    "version": "3.x"
-                }
+    # Simulación: notebook_json es un JSON unificado ya generado, con la clave "cells"
+    notebook_json = {
+        "cells": [
+            {
+                "cell_type": "markdown",
+                "id": "abc123",
+                "metadata": {},
+                "source": [
+                    "### Artículo de Ejemplo\n\nContenido extraído del paper en español."
+                ]
+            }
+        ],
+        "metadata": {
+            "kernelspec": {
+                "display_name": "Python 3 (ipykernel)",
+                "language": "python",
+                "name": "python3"
             },
-            "nbformat": 4,
-            "nbformat_minor": 5
-        }
+            "language_info": {
+                "name": "python",
+                "version": "3.x"
+            }
+        },
+        "nbformat": 4,
+        "nbformat_minor": 5
     }
     manager = AgentManager()
-    nb_json, logs = manager.run_pipeline_multi(sample_articles, github_mapping, pdf_results=pdf_results)
-    print(nb_json)
+    nb_json_result, logs = manager.run_pipeline_multi(sample_articles, github_mapping, notebook_json=notebook_json)
+    print(json.dumps(nb_json_result, indent=2))
     for log in logs:
         print(log)
