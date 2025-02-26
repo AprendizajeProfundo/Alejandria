@@ -2,37 +2,61 @@
 import os
 import re
 import json
-import PyPDF2
 import requests
 from config import LLM_BASE_URL, LLM_API_KEY, LLM_MODEL
 
-def extract_text_from_pdf(pdf_path):
-    """Extrae todo el texto del PDF."""
-    text = ""
-    with open(pdf_path, "rb") as f:
-        reader = PyPDF2.PdfReader(f)
-        for page in reader.pages:
-            page_text = page.extract_text()
-            if page_text:
-                text += page_text + "\n"
-    return text[:200]
-
 def call_llm_for_sections(text, stream_placeholder=None):
-    # Nuevo prompt que solicita que se genere un notebook válido según la estructura Jupyter
+    """
+    Llama al LLM para generar un notebook Jupyter en JSON, siguiendo EXACTAMENTE la siguiente estructura:
+    
+    {
+      "cells": [
+        {
+          "cell_type": "markdown",
+          "id": "<unique_id>",
+          "metadata": {},
+          "source": ["<Contenido de la sección>"]
+        },
+        {
+          "cell_type": "code",
+          "execution_count": null,
+          "id": "<unique_id>",
+          "metadata": {},
+          "outputs": [],
+          "source": ["<Código de ejemplo>"]
+        },
+        ...
+      ],
+      "metadata": {
+        "kernelspec": {"display_name": "Python 3 (ipykernel)", "language": "python", "name": "python3"},
+        "language_info": {"name": "python", "version": "3.x"}
+      },
+      "nbformat": 4,
+      "nbformat_minor": 5
+    }
+    
+    El LLM debe generar únicamente este JSON y nada más.
+    """
     system_prompt = (
         "Actúa como un ingeniero experto en generación de notebooks Jupyter TOTALMENTE EN ESPAÑOL. "
-        "Dado el texto completo de un artículo científico, extrae las secciones clave EN ESPAÑOL (por ejemplo, Introducción, Metodología, Resultados, Conclusiones, etc.) y genera un JSON válido que represente un notebook de Jupyter, siguiendo EXACTAMENTE la siguiente estructura (sin nada adicional):\n\n"
+        "Dado el siguiente texto que consolida información pedagógica sobre un tema en específico y varios textos asociados, "
+        "genera un JSON válido que represente un notebook de Jupyter, y que pueda ser usado como material educativo de autoaprendizaje,"
+        "incluyendo secciones de introducción, tabla de contenido, descripción detallada de cada método, comparaciones, conclusiones y un ejemplo de código, "
+        "El JSON debe incluir celdas de markdown y celdas de código. Para las celdas de código, "
+        "asegúrate de incluir la propiedad 'execution_count' con valor null y 'outputs' como una lista vacía. "
+        "Sigue EXACTAMENTE la siguiente estructura cuando se pueda seguir markdown y luego código o sólo markdown o solo código (sin nada adicional):\n\n"
         "{\n"
-        " \"cells\": [\n"
+        "  \"cells\": [\n"
         "    {\"cell_type\": \"markdown\", \"id\": \"<unique_id>\", \"metadata\": {}, \"source\": [\"<Contenido de la sección>\"]},\n"
+        "    {\"cell_type\": \"code\", \"execution_count\": null, \"id\": \"<unique_id>\", \"metadata\": {}, \"outputs\": [], \"source\": [\"<Código de ejemplo>\"]},\n"
         "    ...\n"
-        " ],\n"
-        " \"metadata\": {\n"
+        "  ],\n"
+        "  \"metadata\": {\n"
         "    \"kernelspec\": {\"display_name\": \"Python 3 (ipykernel)\", \"language\": \"python\", \"name\": \"python3\"},\n"
         "    \"language_info\": {\"name\": \"python\", \"version\": \"3.x\"}\n"
-        " },\n"
-        " \"nbformat\": 4,\n"
-        " \"nbformat_minor\": 5\n"
+        "  },\n"
+        "  \"nbformat\": 4,\n"
+        "  \"nbformat_minor\": 5\n"
         "}\n\n"
         "Genera únicamente este JSON y nada más."
     )
@@ -58,7 +82,7 @@ def call_llm_for_sections(text, stream_placeholder=None):
     response = requests.post(LLM_BASE_URL + "/chat/completions", json=payload, headers=headers, stream=True)
     if response.status_code != 200:
         raise Exception(f"Error en la llamada al LLM: {response.status_code} {response.text}")
-    
+
     full_output = ""
     for line in response.iter_lines():
         if line:
@@ -76,9 +100,9 @@ def call_llm_for_sections(text, stream_placeholder=None):
                                 full_output += content
                                 if stream_placeholder:
                                     stream_placeholder.text(full_output)
-                except Exception as e:
+                except Exception:
                     continue
-                    
+    # Intentar extraer el bloque JSON delimitado por triple backticks, si existe
     match = re.search(r"```(?:json)?\s*(\{.*\})\s*```", full_output, re.DOTALL)
     if match:
         json_str = match.group(1)
@@ -96,17 +120,12 @@ def call_llm_for_sections(text, stream_placeholder=None):
         result = {"cells": [], "metadata": {}, "nbformat": 4, "nbformat_minor": 5}
     return result
 
-
-def process_pdf(pdf_path, stream_placeholder=None):
-    text = extract_text_from_pdf(pdf_path)
-    result = call_llm_for_sections(text, stream_placeholder=stream_placeholder)
+def join_ideas(unified_text, stream_placeholder=None):
+    """
+    Recibe un texto unificado (con la información consolidada de artículos afines)
+    y llama a call_llm_for_sections para generar el JSON final del notebook.
+    """
+    result = call_llm_for_sections(unified_text, stream_placeholder=stream_placeholder)
     return result
 
 # Prueba (opcional)
-if __name__ == "__main__":
-    test_pdf = os.path.join("papers", "input", "example.pdf")
-    if os.path.exists(test_pdf):
-        res = process_pdf(test_pdf)
-        print(json.dumps(res, indent=2))
-    else:
-        print("No se encontró el PDF de prueba.")

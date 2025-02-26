@@ -1,5 +1,6 @@
 # agent_summarizer.py
 
+import re
 import requests
 import json
 import PyPDF2
@@ -15,31 +16,26 @@ def extract_full_text_from_pdf(pdf_path):
         for page in reader.pages:
             page_text = page.extract_text() or ""
             text += page_text + "\n"
-    return text
+    return text[:20000]
 
-def call_llm_for_summary(text, stream_callback=None):
+def call_llm_for_summary(text, stream_placeholder=None):
     """
     Llama al LLM para extraer un resumen pedagógico del artículo:
-    - ideas principales
-    - metodologías
-    - comparaciones
-    - algoritmos
-    etc.
+      - ideas principales
+      - metodologías
+      - comparaciones
+      - algoritmos
+      etc.
+    Retorna un dict con las claves: 'main_ideas', 'methods', 'comparisons', 'algorithms', 'other'.
     
-    Retorna un dict con dichas secciones (ej. 'main_ideas', 'methods', 'comparisons', etc.)
+    Se utiliza el parámetro stream_placeholder para actualizar el progreso en streaming.
     """
     system_prompt = (
         "Actúa como un experto en análisis pedagógico de papers. "
         "Dado el texto de un artículo científico, extrae las secciones clave EN ESPAÑOL: "
         "ideas principales, metodologías, comparaciones, algoritmos, etc. "
         "Retorna tu respuesta en formato JSON con las claves: "
-        "{ "
-        "   'main_ideas': [..], "
-        "   'methods': [..], "
-        "   'comparisons': [..], "
-        "   'algorithms': [..], "
-        "   'other': [..] "
-        "}"
+        "{ 'main_ideas': [...], 'methods': [...], 'comparisons': [...], 'algorithms': [...], 'other': [...] } "
         "Sin nada adicional."
     )
     user_prompt = text
@@ -79,14 +75,24 @@ def call_llm_for_summary(text, stream_callback=None):
                             if "delta" in choice and "content" in choice["delta"]:
                                 content = choice["delta"]["content"]
                                 full_output += content
-                                if stream_callback:
-                                    stream_callback(full_output)
+                                if stream_placeholder:
+                                    stream_placeholder.text(full_output)
                 except:
                     pass
-    # Se intenta parsear el JSON resultante
+    match = re.search(r"```(?:json)?\s*(\{.*\})\s*```", full_output, re.DOTALL)
+    if match:
+        json_str = match.group(1)
+    else:
+        # Fallback: extraer desde la primera "{" hasta la última "}"
+        start_index = full_output.find("{")
+        end_index = full_output.rfind("}")
+        if start_index != -1 and end_index != -1 and end_index > start_index:
+            json_str = full_output[start_index:end_index+1]
+        else:
+            json_str = "{}"
     try:
-        result = json.loads(full_output)
-    except:
+        result = json.loads(json_str)
+    except Exception as e:
         result = {
             "main_ideas": [],
             "methods": [],
@@ -96,10 +102,16 @@ def call_llm_for_summary(text, stream_callback=None):
         }
     return result
 
-def summarize_pdf(pdf_path, stream_callback=None):
+def summarize_pdf(pdf_path, stream_placeholder=None):
     """
     Extrae el texto completo del PDF y llama al LLM para obtener el resumen pedagógico.
     """
     text = extract_full_text_from_pdf(pdf_path)
-    summary = call_llm_for_summary(text, stream_callback=stream_callback)
+    summary = call_llm_for_summary(text, stream_placeholder=stream_placeholder)
     return summary
+
+# Prueba (opcional)
+if __name__ == "__main__":
+    test_pdf = "papers/input/example.pdf"
+    res = summarize_pdf(test_pdf)
+    print(json.dumps(res, indent=2))
