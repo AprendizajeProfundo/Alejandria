@@ -56,6 +56,9 @@ def call_llm_for_summary(text, stream_placeholder=None):
         "Content-Type": "application/json"
     }
 
+    if stream_placeholder:
+        stream_placeholder.text("Procesando Prompt de Extracción. Espere por favor...")
+
     response = requests.post(LLM_BASE_URL + "/chat/completions", json=payload, headers=headers, stream=True)
     if response.status_code != 200:
         raise Exception(f"Error en la llamada al LLM: {response.status_code} {response.text}")
@@ -100,7 +103,7 @@ def call_llm_for_summary(text, stream_placeholder=None):
             "algorithms": [],
             "other": []
         }
-    return result
+    return full_output, result
 
 def summarize_pdf(pdf_path, stream_placeholder=None):
     """
