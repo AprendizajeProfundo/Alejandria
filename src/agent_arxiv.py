@@ -11,6 +11,7 @@ class ArxivAgent:
 
     def fetch_articles(self, type_query=TYPE_QUERY, query=QUERY_TOPIC, start=START, max_results=MAX_RES, sortby=SORTBY, sortorder=SORTORDER):
         url = self.base_url.format(query=query, start=start, max_results=max_results, sortby=sortby, sortorder=sortorder, type_query=type_query)
+        print("\n",url)
         response = requests.get(url)
         #print(response.content)
         if response.status_code != 200:
@@ -93,8 +94,37 @@ class ArxivAgent:
 
 # Prueba de extracción
 if __name__ == "__main__":
+    import argparse
+
+    # Definición de los argumentos de la línea de comandos
+    parser = argparse.ArgumentParser(description="Consulta la API de arXiv y muestra resultados.")
+    parser.add_argument("-q", "--query", type=str, default='RAG', 
+                        help="Consulta para arXiv (p. ej., 'RAG+\"hybrid search\"')")
+    parser.add_argument("--type_query", type=str, default=TYPE_QUERY, 
+                        help="Tipo de consulta (según tu configuración)")
+    parser.add_argument("--start", type=int, default=START, 
+                        help="Índice de inicio para la paginación")
+    parser.add_argument("--max_results", type=int, default=MAX_RES, 
+                        help="Número máximo de resultados a obtener")
+    parser.add_argument("--sortby", type=str, default=SORTBY, 
+                        help="Criterio de ordenamiento (relevance, lastUpdatedDate, submittedDate)")
+    parser.add_argument("--sortorder", type=str, default=SORTORDER, 
+                        help="Orden de ordenamiento (ascending o descending)")
+    
+    args = parser.parse_args()
+
+    # Creación del agente y llamada al método fetch_articles con los argumentos recibidos
     agent = ArxivAgent()
-    articles = agent.fetch_articles(query="RAG")
+    articles = agent.fetch_articles(
+        type_query=args.type_query,
+        query=args.query,
+        start=args.start,
+        max_results=args.max_results,
+        sortby=args.sortby,
+        sortorder=args.sortorder
+    )
+    
+    # Mostrar resultados
     for art in articles:
         print("\nTitle:", art["title"])
         print("Summary:", art["summary"])
