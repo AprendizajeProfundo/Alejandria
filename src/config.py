@@ -2,16 +2,17 @@
 import os
 
 # Formato de URL para arXiv (se deben incluir todos los parámetros)
-ARXIV_API_URL = ("http://export.arxiv.org/api/query?search_query={query}"
+ARXIV_API_URL = ('http://export.arxiv.org/api/query?search_query={type_query}:{query}'
                  "&start={start}&max_results={max_results}"
-                 "&sortBy={sortby}&sortOrder={sortorder}&type={type_query}")
+                 "&sortBy={sortby}&sortOrder={sortorder}")
 
 # Parámetros por defecto para la consulta
 QUERY_TOPIC = "RAG"
 TYPE_QUERY = "all"
 START = 0
 MAX_RES = 10
-SORTBY = "submittedDate"
+#SORTBY = "submittedDate"
+SORTBY = "relevance"
 SORTORDER = "descending"
 
 # Configuración para GitHub
