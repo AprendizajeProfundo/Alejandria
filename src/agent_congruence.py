@@ -50,7 +50,7 @@ def call_llm_for_congruence(summaries, stream_placeholder=None):
         "Content-Type": "application/json"
     }
     if stream_placeholder:
-        stream_placeholder.text("Procesando congruencia, espere por favor...")
+        stream_placeholder.text("Procesando Prompt de Congruencia. Espere por favor...")
     response = requests.post(LLM_BASE_URL + "/chat/completions", json=payload, headers=headers, stream=True)
     if response.status_code != 200:
         raise Exception(f"Error en la llamada al LLM para congruencia: {response.status_code} {response.text}")
@@ -89,7 +89,7 @@ def call_llm_for_congruence(summaries, stream_placeholder=None):
         result = json.loads(json_str)
     except:
         result = {"related": False, "conclusion": "", "details": ""}
-    return result
+    return full_output, result
 
 def check_congruence(summaries, stream_placeholder=None):
     return call_llm_for_congruence(summaries, stream_placeholder=stream_placeholder)
