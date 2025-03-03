@@ -138,38 +138,40 @@ def main():
     if st.session_state.get("selected_articles"):
         st.header("3. Extraer Ideas y Conceptos")
         if st.button("Extraer Ideas y conceptos"):
-            if "pdf_results" not in st.session_state:
-                pdf_results = {}
-                for art in st.session_state["selected_articles"]:
-                    pdf_url = art["pdf_link"]
+            # Recuperamos o inicializamos el diccionario de resultados
+            pdf_results = st.session_state.get("pdf_results", {})
+            # Obtenemos los IDs (link_article) de la selección actual
+            current_ids = set(art["link_article"] for art in st.session_state["selected_articles"])
+            # Si hay resultados previos, eliminamos aquellos que ya no estén en la selección
+            for key in list(pdf_results.keys()):
+                if key not in current_ids:
+                    del pdf_results[key]
+            # Procesamos únicamente los artículos que aún no se han procesado
+            for art in st.session_state["selected_articles"]:
+                link = art["link_article"]
+                if link not in pdf_results:
+                    pdf_url = art.get("pdf_link")
                     if pdf_url:
                         try:
-                            filename = art["link_article"].split("/")[-1] + ".pdf"
+                            filename = link.split("/")[-1] + ".pdf"
                             pdf_folder = "../input/papers"
                             pdf_path = download_pdf(pdf_url, pdf_folder, filename)
                             st.info(f"PDF descargado para **{art['title']}** en {pdf_path}")
                             with st.spinner("Pensando..."):
+                                # Mostramos el resultado en un expander para este artículo
                                 with st.expander(f"**{art['title']}**"):
-                                    # Creamos un placeholder para el spinner
                                     spinner_placeholder = st.empty()
-                                    # Llamada a summarize_pdf que se encarga del streaming actual
                                     full_output, result = summarize_pdf(pdf_path, stream_placeholder=spinner_placeholder)
                                     spinner_placeholder.markdown(full_output)
-                                    pdf_results[art["link_article"]] = [full_output, result]
-                                    st.session_state["pdf_results"] = pdf_results
+                                    pdf_results[link] = [full_output, result]
                         except Exception as e:
                             st.error(f"Error procesando PDF para {art['title']}: {e}")
                     else:
                         st.warning(f"No se encontró PDF para {art['title']}")
-            else:
-                # Si ya se procesaron, mostramos el expander con el resultado final (único por artículo)
-                for art in st.session_state["selected_articles"]:
-                    link = art["link_article"]
-                    if link in st.session_state["pdf_results"]:
-                        with st.expander(f"**{art['title']}**"):
-                            st.markdown(st.session_state["pdf_results"][link][0])
+            st.session_state["pdf_results"] = pdf_results
             st.success("Extracción de Ideas y Conceptos completada.")
         else:
+            # Si ya se han extraído resultados, se muestran en sus expanders correspondientes.
             if "pdf_results" in st.session_state:
                 for art in st.session_state["selected_articles"]:
                     link = art["link_article"]
@@ -177,61 +179,94 @@ def main():
                         with st.expander(f"**{art['title']}**"):
                             st.markdown(st.session_state["pdf_results"][link][0])
         
-
     # ---------- Fase 4: Medir congruencias entre Secciones (Comparación de ideas) ----------
     if st.session_state.get("pdf_results"):
         st.header("4. Evaluar Congruencia entre Artículos")
+        
+        # Comparamos la selección actual con la que se usó la última vez para la congruencia.
+        current_ids = set(art["link_article"] for art in st.session_state["selected_articles"])
+        # Si se cambia la selección, reiniciamos el resultado de congruencia para forzar el reprocesamiento.
+        if st.session_state.get("congruence_selected_ids", set()) != current_ids:
+            st.session_state["congruence_selected_ids"] = current_ids
+            st.session_state.pop("congruence_result", None)
+    
         if st.button("Comparar Ideas y Conceptos"):
             with st.spinner("Comparando ideas y conceptos..."):
-                with st.expander("**Comparación**"):
+                with st.expander("**Comparación Entre Artículos**"):
                     cong_placeholder = st.empty()
+                    # Aquí se procesa la congruencia usando los resultados actuales de PDF.
                     full_c_output, congruence_result = check_congruence(st.session_state["pdf_results"], stream_placeholder=cong_placeholder)
                     cong_placeholder.markdown(full_c_output)
-                    st.session_state["congruence_result"] = congruence_result
+                    st.session_state["congruence_result"] = [full_c_output, congruence_result]
             st.success("Comparación completada.")
-            
+        else:
+            # Si ya se ha calculado la congruencia, se muestra en un expander.
+            if "congruence_result" in st.session_state:
+                with st.expander("**Comparación**"):
+                    st.markdown(st.session_state["congruence_result"][0])
+
     # ---------- Fase 5: Construir JSON de Notebook con info Consolidada ----------
     if (st.session_state.get("selected_articles") and 
         st.session_state.get("pdf_results") and 
         st.session_state.get("congruence_result")):
-        st.header("Consolidar Información y Generar Notebook Final")
+        
+        st.header("5. Consolidar Información y Generar Notebook Final")
+        
+        # Si se pulsa el botón, se genera la información consolidada y el notebook
         if st.button("Consolidar Información y Generar Notebook Final"):
+            
             # Construir el texto unificado consolidado
             unified_text = "### Material Educativo Consolidado\n\n"
-            cong = st.session_state["congruence_result"]
+            cong = st.session_state["congruence_result"][1]
             unified_text += f"**Conclusión de Congruencia:** {cong.get('conclusion', 'No se encontró relación')}\n\n"
             unified_text += f"**Detalles:** {cong.get('details', '')}\n\n"
+            
             for art in st.session_state["selected_articles"]:
                 art_id = art["link_article"]
                 summary = st.session_state["pdf_results"].get(art_id, {})[1]
-                #print(summary)
                 unified_text += f"## {art['title']}\n\n"
-                # Recorrer cada clave del resumen extraído
+                # Recorrer cada clave del resumen extraído (omitimos 'chain_of_thought' si existe)
                 for key, values in summary.items():
-                    if key.lower() != "chain_of_thought":  # en caso de existir
+                    if key.lower() != "chain_of_thought":
                         if isinstance(values, list):
                             unified_text += f"**{key.capitalize()}:** {', '.join(values)}\n\n"
                         else:
                             unified_text += f"**{key.capitalize()}:** {values}\n\n"
-                # Agregar un ejemplo de código para ejemplificar la implementación
+                # Ejemplo de código para ilustrar la implementación
                 unified_text += "\n```python\n# Ejemplo de implementación:\nprint('Ejemplo de código para material educativo')\n```\n\n"
+            
+            # Guardamos el texto unificado en el estado para conservarlo
             st.session_state["unified_text"] = unified_text
             st.success("Información consolidada.")
-            with st.expander("Ver Texto Unificado"):
+            
+            # Mostrar el texto unificado en un expander permanente
+            with st.expander("**Ver Texto Unificado**"):
                 st.text_area("Texto Unificado", unified_text, height=300)
-
+            
+            # Generar el notebook JSON usando un spinner (fuera del expander)
             with st.spinner("Generando Notebook..."):
-                cong_placeholder = st.empty()
-                notebook_json = join_ideas(st.session_state["unified_text"], stream_placeholder=cong_placeholder)
-                print(notebook_json)
-                st.session_state["notebook_json"] = notebook_json
+                with st.expander("**Notebook Unificado**"):
+                    cong_placeholder = st.empty()
+                    full_n_output, notebook_json = join_ideas(unified_text, stream_placeholder=cong_placeholder)
+                    st.session_state["notebook_json"] = [full_n_output, notebook_json]
+                    cong_placeholder.markdown(full_n_output)
                 
-
-    # ---------- Fase 3: Generar Notebook Consolidado ----------
+        else:
+            # Si ya se ha procesado previamente, se muestran los resultados guardados
+            
+            if "unified_text" in st.session_state:
+                with st.expander("Ver Texto Unificado"):
+                    st.text_area("Texto Unificado", st.session_state["unified_text"], height=300)
+            
+            if "notebook_json" in st.session_state:
+                with st.expander("**Notebook Unificado**"):
+                    st.markdown(st.session_state["notebook_json"][0])
+                
+    # ---------- Fase 6: Generar Notebook Consolidado ----------
     if (st.session_state.get("selected_articles") and 
     st.session_state.get("pdf_results") and
     st.session_state.get("notebook_json")):
-        st.header("3. Generar Notebook Consolidado")
+        st.header("6. Generar Notebook Consolidado")
         if st.button("Generar Notebook Consolidado"):
             # Mapeo de repositorios (opcional)
             github_mapping = {}
@@ -249,7 +284,7 @@ def main():
                 nb_json, logs = manager.run_pipeline_multi(
                     st.session_state["selected_articles"],
                     github_mapping,
-                    notebook_json=st.session_state["notebook_json"]
+                    notebook_json=st.session_state["notebook_json"][1]
                 )
                 nb_json = execute_notebook(nb_json)
                 notebook_filename = "Alejandria_Notebook_Consolidado.ipynb"
