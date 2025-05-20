@@ -16,7 +16,7 @@ def extract_full_text_from_pdf(pdf_path):
         for page in reader.pages:
             page_text = page.extract_text() or ""
             text += page_text + "\n"
-    return text[:20000]
+    return text[:200]
 
 def call_llm_for_summary(text, stream_placeholder=None):
     """
