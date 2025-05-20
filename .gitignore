@@ -31,10 +31,10 @@ ENV/
 *.cache
 
 # Archivos de configuración local
-!.env
-!.env.*
-!**/.env
-!**/.env.*
+.env
+.env.*
+**/.env
+**/.env.*
 
 # Archivos de IDE
 .idea/
