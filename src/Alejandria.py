@@ -70,7 +70,14 @@ def main():
                 # Se pasa el parámetro 'sortby' según la selección realizada
                 articles = arxiv_agent.fetch_articles(query=query_topic, max_results=max_results, sortby=sortby)
                 for art in articles:
+                    # Asegurarse de que los campos necesarios estén presentes
+                    if 'abstract' in art and 'summary' not in art:
+                        art['summary'] = art['abstract']
+                    if 'url' in art and 'link_article' not in art:
+                        art['link_article'] = art['url']
+                    
                     art["summary_highlight"] = highlight_text(art.get("summary", ""), query_topic)
+                    
                     if isinstance(art.get("link_article"), str):
                         art["link_article"] = art["link_article"].rstrip("/")
                 st.session_state["articles"] = articles
@@ -149,7 +156,8 @@ def main():
             for art in st.session_state["selected_articles"]:
                 link = art["link_article"]
                 if link not in pdf_results:
-                    pdf_url = art.get("pdf_link")
+                    # Usamos 'pdf_url' en lugar de 'pdf_link' para coincidir con el campo del agente de Arxiv
+                    pdf_url = art.get("pdf_url")
                     if pdf_url:
                         try:
                             filename = link.split("/")[-1] + ".pdf"
