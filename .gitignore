@@ -1,9 +1,51 @@
-# ignorar archivos con extensiones definidas
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+build/
+*.egg-info/
 
-*.env
-*.DS_Store
+# Virtual Environment
+venv/
+env/
+ENV/
 
-# Ignorar checkpoints de notebooks
+# Frontend
+**/node_modules/
+**/.next/
+**/dist/
+**/build/
 
+# Logs
+*.log
+
+# Archivos temporales
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Archivos de caché
+.cache/
+*.cache
+
+# Archivos de configuración local
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Archivos de IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Checkpoints de notebooks
 .ipynb_checkpoints/
 */.ipynb_checkpoints/**

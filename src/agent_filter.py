@@ -118,7 +118,7 @@ def call_llm_for_sections(text, stream_placeholder=None):
         result = json.loads(json_str)
     except Exception as e:
         result = {"cells": [], "metadata": {}, "nbformat": 4, "nbformat_minor": 5}
-    return result
+    return full_output, result
 
 def join_ideas(unified_text, stream_placeholder=None):
     """

@@ -3,7 +3,7 @@ import os
 import time
 import nbformat
 import json
-from agent_github import GitHubAgent
+from scraping.agent_github import GitHubAgent
 from notebook_generator import create_notebook_json  # (opcional, si lo usas)
 
 def download_pdf(pdf_url, output_folder, filename):
