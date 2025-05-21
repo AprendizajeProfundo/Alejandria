@@ -291,8 +291,8 @@ export const SearchResults: React.FC = () => {
           </Button>
         </Box>
         {/* Filtros debajo del campo de búsqueda, más espaciados y slider más grande */}
-        <MuiBox sx={{ display: 'flex', gap: 4, alignItems: 'center', mt: 4, mb: 2, flexWrap: 'wrap', justifyContent: 'space-between' }}>
-          <FormControl size="small" sx={{ minWidth: 180 }}>
+        <MuiBox sx={{ display: 'flex', gap: 4, alignItems: 'center', mt: 4, mb: 2, flexWrap: 'nowrap', justifyContent: 'space-between' }}>
+          <FormControl size="small" sx={{ minWidth: 180, maxWidth: 220, flexShrink: 0 }}>
             <InputLabel id="sortby-label">Ordenar por</InputLabel>
             <Select
               labelId="sortby-label"
@@ -300,13 +300,23 @@ export const SearchResults: React.FC = () => {
               label="Ordenar por"
               onChange={e => setSortBy(e.target.value)}
               disabled={isSearching}
+              MenuProps={{
+                PaperProps: {
+                  style: { maxWidth: 260 }
+                }
+              }}
+              sx={{
+                minWidth: 180,
+                maxWidth: 220,
+                flexShrink: 0
+              }}
             >
               <MenuItem value="relevance">Relevancia</MenuItem>
               <MenuItem value="lastUpdatedDate">Última actualización</MenuItem>
               <MenuItem value="submittedDate">Fecha de envío</MenuItem>
             </Select>
           </FormControl>
-          <FormControl size="small" sx={{ minWidth: 140 }}>
+          <FormControl size="small" sx={{ minWidth: 140, maxWidth: 180, flexShrink: 0 }}>
             <InputLabel id="type-query-label">Tipo</InputLabel>
             <Select
               labelId="type-query-label"
@@ -314,6 +324,16 @@ export const SearchResults: React.FC = () => {
               label="Tipo"
               onChange={e => setTypeQuery(e.target.value)}
               disabled={isSearching}
+              MenuProps={{
+                PaperProps: {
+                  style: { maxWidth: 180 }
+                }
+              }}
+              sx={{
+                minWidth: 140,
+                maxWidth: 180,
+                flexShrink: 0
+              }}
             >
               <MenuItem value="all">Todo</MenuItem>
               <MenuItem value="title">Título</MenuItem>
