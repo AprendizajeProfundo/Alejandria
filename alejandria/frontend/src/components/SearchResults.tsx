@@ -438,96 +438,129 @@ export const SearchResults: React.FC = () => {
                           sx={{
                             minHeight: 48,
                             '& .MuiAccordionSummary-content': {
-                              alignItems: 'center'
+                              alignItems: 'center',
+                              gap: 1
                             }
                           }}
                         >
-                          <Checkbox
-                            edge="start"
-                            checked={selected.includes(article.id)}
-                            onChange={() => handleToggle(article.id)}
-                            color="primary"
-                            sx={{ mr: 1 }}
-                          />
-                          <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1 }}>
-                            {article.title}
-                          </Typography>
-                          {/* Iconos cerca del título */}
-                          {/* GitHub solo si hay link */}
-                          {article.github_link && (
-                            <Tooltip title={`GitHub: ${article.github_link}`}>
-                              <IconButton
-                                size="small"
-                                component="a"
-                                href={article.github_link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                sx={{ ml: 1 }}
-                                onClick={e => e.stopPropagation()} // No expandir el acordeón al hacer click
+                          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                            <Checkbox
+                              edge="start"
+                              checked={selected.includes(article.id)}
+                              onChange={() => handleToggle(article.id)}
+                              color="primary"
+                              sx={{ mr: 1 }}
+                            />
+                            {/* Fecha alineada, con ceros a la izquierda */}
+                            {article.published && (
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{
+                                  mr: 2,
+                                  fontVariantNumeric: 'tabular-nums',
+                                  minWidth: 90,
+                                  textAlign: 'right',
+                                  fontFamily: 'monospace'
+                                }}
                               >
-                                <GitHubIcon
-                                  color={
-                                    article.github_status === 'OK'
-                                      ? 'success'
-                                      : article.github_status === 'Broken'
-                                      ? 'error'
-                                      : 'disabled'
-                                  }
-                                />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          {/* Fecha de publicación */}
-                          {article.published && (
-                            <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
-                              {new Date(article.published).toLocaleDateString()}
+                                {(() => {
+                                  const d = new Date(article.published);
+                                  const y = d.getFullYear();
+                                  const m = String(d.getMonth() + 1).padStart(2, '0');
+                                  const day = String(d.getDate()).padStart(2, '0');
+                                  return `${y}-${m}-${day}`;
+                                })()}
+                              </Typography>
+                            )}
+                            {/* Título */}
+                            <Typography
+                              variant="subtitle1"
+                              sx={{
+                                fontWeight: 600,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                flex: 1,
+                                display: 'flex',
+                                alignItems: 'center'
+                              }}
+                            >
+                              {article.title}
                             </Typography>
-                          )}
-                          {/* Palabras clave */}
-                          {article.categories && article.categories.length > 0 && (
-                            <Box sx={{ display: 'flex', gap: 0.5, ml: 2, flexWrap: 'wrap' }}>
-                              {article.categories.slice(0, 3).map((cat) => (
-                                <Chip
-                                  key={cat}
-                                  label={cat}
+                            {/* Espaciador flexible para empujar los iconos a la derecha */}
+                            <Box sx={{ flexGrow: 0.05 }} />
+                            {/* GitHub */}
+                            {article.github_link && (
+                              <Tooltip title={`GitHub: ${article.github_link}`}>
+                                <IconButton
                                   size="small"
-                                  color="default"
-                                  sx={{ mr: 0.5 }}
-                                />
-                              ))}
-                            </Box>
-                          )}
-                          {/* PDF y página */}
-                          {article.pdf_url && (
-                            <Tooltip title="Ver PDF">
-                              <IconButton
-                                size="small"
-                                component="a"
-                                href={article.pdf_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                sx={{ ml: 1 }}
-                                onClick={e => e.stopPropagation()}
-                              >
-                                <PdfIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          {article.url && (
-                            <Tooltip title="Ver en la página de origen">
-                              <IconButton
-                                size="small"
-                                component="a"
-                                href={article.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                sx={{ ml: 1 }}
-                                onClick={e => e.stopPropagation()}
-                              >
-                                <OpenInNewIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
+                                  component="a"
+                                  href={article.github_link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  sx={{ ml: 0.5 }}
+                                  onClick={e => e.stopPropagation()}
+                                >
+                                  <GitHubIcon
+                                    color={
+                                      article.github_status === 'OK'
+                                        ? 'success'
+                                        : article.github_status === 'Broken'
+                                        ? 'error'
+                                        : 'disabled'
+                                    }
+                                  />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            {/* PDF */}
+                            {article.pdf_url && (
+                              <Tooltip title="Ver PDF">
+                                <IconButton
+                                  size="small"
+                                  component="a"
+                                  href={article.pdf_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  sx={{ ml: 0.5 }}
+                                  onClick={e => e.stopPropagation()}
+                                >
+                                  <PdfIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            {/* Portal */}
+                            {article.url && (
+                              <Tooltip title="Ver en la página de origen">
+                                <IconButton
+                                  size="small"
+                                  component="a"
+                                  href={article.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  sx={{ ml: 0.5 }}
+                                  onClick={e => e.stopPropagation()}
+                                >
+                                  <OpenInNewIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            {/* Palabras clave */}
+                            {article.categories && article.categories.length > 0 && (
+                              <Box sx={{ display: 'flex', gap: 0.5, ml: 2, flexWrap: 'wrap' }}>
+                                {article.categories.slice(0, 3).map((cat) => (
+                                  <Chip
+                                    key={cat}
+                                    label={cat}
+                                    size="small"
+                                    color="default"
+                                    sx={{ mr: 0.5 }}
+                                  />
+                                ))}
+                              </Box>
+                            )}
+                          </Box>
                         </AccordionSummary>
                         <AccordionDetails>
                           <Box sx={{ pl: 1 }}>
