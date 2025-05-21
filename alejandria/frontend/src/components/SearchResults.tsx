@@ -520,7 +520,7 @@ export const SearchResults: React.FC = () => {
                   {/* Palabras clave usadas en la búsqueda */}
                   {query && (
                     <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
-                      | <b>{query}</b>
+                      <b>{query}</b>
                     </Typography>
                   )}
                   <Chip
