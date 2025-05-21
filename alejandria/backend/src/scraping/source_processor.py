@@ -62,7 +62,10 @@ class SourceProcessor:
         websocket = None,
         timeout: int = 30,
         max_results: int = 10,
-        sortby: str = "relevance"
+        sortby: str = "relevance",
+        type_query: str = "all",
+        start: int = 0,
+        sortorder: str = "descending"
     ) -> Dict[str, List[Dict[str, Any]]]:
         """
         Procesa la consulta en Arxiv y envía los resultados a través del websocket.
@@ -119,10 +122,17 @@ class SourceProcessor:
             # Notificar inicio de procesamiento de la fuente
             await send_update("started")
             logger.info("Procesando Arxiv...")
-            
-            # Procesar la fuente con timeout y parámetros personalizados
+            # LOG: Mostrar lo que se pasa a la función interna
+            logger.info(f"[process_sources] Llamando a _process_arxiv con: query={query}, max_results={max_results}, sortby={sortby}, type_query={type_query}, start={start}, sortorder={sortorder}")
             source_task = asyncio.create_task(
-                self._process_arxiv(query, max_results=max_results, sortby=sortby),
+                self._process_arxiv(
+                    query,
+                    max_results=max_results,
+                    sortby=sortby,
+                    type_query=type_query,
+                    start=start,
+                    sortorder=sortorder
+                ),
                 name="arxiv_task"
             )
             
@@ -208,18 +218,24 @@ class SourceProcessor:
             logger.error(f"Error procesando fuente {source}: {str(e)}")
             return []
 
-    async def _process_arxiv(self, query: str, max_results: int = 10, sortby: str = "relevance") -> List[Dict[str, Any]]:
+    async def _process_arxiv(self, query: str, max_results: int = 10, sortby: str = "relevance", type_query: str = "all", start: int = 0, sortorder: str = "descending") -> List[Dict[str, Any]]:
         """
         Procesa la consulta usando ArXiv.
         """
+        # LOG: Mostrar lo que entra a la función
+        logger.info(f"[_process_arxiv] Parámetros: query={query}, max_results={max_results}, sortby={sortby}, type_query={type_query}, start={start}, sortorder={sortorder}")
         try:
             logger.info(f"Buscando en ArXiv: {query}")
             try:
-                # Solo pasa los argumentos que acepta tu ArxivAgent
+                # LOG: Mostrar lo que se pasa al agente
+                logger.info(f"[_process_arxiv] Llamando a fetch_articles con: query={query}, max_results={max_results}, sortby={sortby}, type_query={type_query}, start={start}, sortorder={sortorder}")
                 arxiv_results = self.arxiv_agent.fetch_articles(
                     query=query,
                     max_results=max_results,
-                    sortby=sortby
+                    sortby=sortby,
+                    type_query=type_query,
+                    start=start,
+                    sortorder=sortorder
                 )
                 if not isinstance(arxiv_results, list):
                     logger.warning("La respuesta de ArXiv no es una lista")

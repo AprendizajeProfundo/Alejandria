@@ -20,8 +20,7 @@ app = FastAPI(title="Alejandria API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3001",
-        "http://localhost:3003"  # Nuevo puerto del frontend
+        "http://localhost:3001"  # Nuevo puerto del frontend
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -63,12 +62,8 @@ async def websocket_endpoint(websocket: WebSocket):
         while is_websocket_connected(websocket):
             try:
                 logger.info(f"[WS:{connection_id}] Esperando mensaje del cliente...")
-                
-                # Esperar el mensaje de búsqueda
                 data = await websocket.receive_text()
                 logger.info(f"[WS:{connection_id}] Mensaje recibido: {data[:200]}...")
-                
-                # Enviar confirmación de recepción
                 ack_message = {
                     "type": "acknowledge",
                     "message": "Mensaje recibido correctamente",
@@ -76,18 +71,23 @@ async def websocket_endpoint(websocket: WebSocket):
                 }
                 logger.info(f"[WS:{connection_id}] Enviando ACK")
                 await safe_send_json(websocket, ack_message, connection_id)
-                
-                # Parsear el mensaje JSON
                 message = json.loads(data)
                 message_type = message.get("type")
-                
+
                 if message_type == "search":
-                    
                     try:
                         query = message.get("query", "").strip()
-                        # Forzar solo búsqueda en Arxiv
                         sources = ["arxiv"]
-                        
+
+                        # Extraer todos los parámetros relevantes del mensaje
+                        max_results = message.get("max_results", 10)
+                        sortby = message.get("sortby", "relevance")
+                        type_query = message.get("type_query", "all")
+                        start = message.get("start", 0)
+                        sortorder = message.get("sortorder", "descending")
+
+                        logger.info(f"[WS:{connection_id}] Parámetros recibidos del frontend: query={query}, max_results={max_results}, sortby={sortby}, type_query={type_query}, start={start}, sortorder={sortorder}")
+
                         if not query:
                             error_msg = "La consulta no puede estar vacía"
                             logger.error(f"[WS:{connection_id}] {error_msg}")
@@ -97,45 +97,39 @@ async def websocket_endpoint(websocket: WebSocket):
                                 "timestamp": datetime.utcnow().isoformat()
                             }, connection_id)
                             continue
-                            
+
                         logger.info(f"[WS:{connection_id}] Iniciando búsqueda: '{query}' en Arxiv")
-                        
-                        # Enviar confirmación de inicio de búsqueda
                         await safe_send_json(websocket, {
                             "type": "search_started",
                             "message": f"Buscando en Arxiv: {query}",
                             "timestamp": datetime.utcnow().isoformat()
                         }, connection_id)
-                        
-                        # Procesar la búsqueda usando el servicio con soporte para websocket
-                        logger.info(f"[WS:{connection_id}] Iniciando búsqueda en SearchService...")
-                        
-                        # Enviar mensaje de inicio de procesamiento
                         await safe_send_json(websocket, {
                             "type": "processing_started",
                             "message": "Procesando Arxiv...",
                             "sources": sources,
                             "timestamp": datetime.utcnow().isoformat()
                         }, connection_id)
-                        
-                        # Ejecutar la búsqueda con soporte para websocket
+
+                        # Pasa los parámetros al search_service
                         search_results = await search_service.search(
-                            query=query, 
+                            query=query,
                             sources=sources,
-                            websocket=websocket  # Pasar el websocket para actualizaciones en tiempo real
+                            websocket=websocket,
+                            max_results=max_results,
+                            sortby=sortby,
+                            type_query=type_query,
+                            start=start,
+                            sortorder=sortorder
                         )
-                        
-                        # Si hay un error, ya se habrá notificado a través del websocket
+
                         if search_results.get("status") == "error":
                             error_msg = search_results.get("error", "Error desconocido en la búsqueda")
                             logger.error(f"[WS:{connection_id}] {error_msg}")
                             continue
-                        
-                        # Enviar resumen final de resultados
+
                         total_results = sum(len(r) for r in search_results.get('results', {}).values())
                         logger.info(f"[WS:{connection_id}] Búsqueda completada con {total_results} resultados")
-                        
-                        # Enviar mensaje de finalización con todos los resultados
                         await safe_send_json(websocket, {
                             "type": "search_completed",
                             "query": query,
@@ -144,7 +138,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             "results": search_results.get('results', {}),
                             "timestamp": datetime.utcnow().isoformat()
                         }, connection_id)
-                        
+
                     except Exception as e:
                         error_msg = f"Error inesperado: {str(e)}"
                         logger.error(f"[WS:{connection_id}] {error_msg}", exc_info=True)
