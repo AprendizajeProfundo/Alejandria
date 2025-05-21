@@ -219,9 +219,6 @@ class SourceProcessor:
             return []
 
     async def _process_arxiv(self, query: str, max_results: int = 10, sortby: str = "relevance", type_query: str = "all", start: int = 0, sortorder: str = "descending") -> List[Dict[str, Any]]:
-        """
-        Procesa la consulta usando ArXiv.
-        """
         # LOG: Mostrar lo que entra a la función
         logger.info(f"[_process_arxiv] Parámetros: query={query}, max_results={max_results}, sortby={sortby}, type_query={type_query}, start={start}, sortorder={sortorder}")
         try:
@@ -237,6 +234,8 @@ class SourceProcessor:
                     start=start,
                     sortorder=sortorder
                 )
+                import json
+                logger.info(f"[_process_arxiv] Resultados crudos de arxiv_results: {json.dumps(arxiv_results, ensure_ascii=False, indent=2)[:2000]}")
                 if not isinstance(arxiv_results, list):
                     logger.warning("La respuesta de ArXiv no es una lista")
                     return []
@@ -252,58 +251,42 @@ class SourceProcessor:
                     abstract = result.get("summary", result.get("abstract", "")).strip()
                     authors = []
                     if "authors" in result:
-                        authors_str = result["authors"]
-                        if isinstance(authors_str, str):
-                            authors = [{"name": author.strip()} for author in authors_str.split(",") if author.strip()]
-                        elif isinstance(authors_str, list):
-                            authors = [{"name": str(author).strip()} for author in authors_str if str(author).strip()]
-                    categories = []
-                    if "main_topics" in result and isinstance(result["main_topics"], list):
-                        categories = [str(topic).strip() for topic in result["main_topics"] if str(topic).strip()]
-                    arxiv_url = result.get("link", "")
-                    entry_id = ""
-                    if arxiv_url:
-                        import re
-                        match = re.search(r'arxiv\.org\/abs\/([^\/]+)', arxiv_url)
-                        if match:
-                            entry_id = f"arxiv:{match.group(1)}"
-                    # Extraer links de GitHub usando el agente extractor
-                    github_links = extract_github_links(abstract)
-                    github_link = github_links[0] if github_links else ""
-                    # Verificar estado del enlace de GitHub
-                    github_status = "No link"
-                    if github_link:
-                        try:
-                            import requests
-                            github_link = github_link.rstrip(".,;:!?\"')")
-                            r = requests.head(github_link, timeout=5, allow_redirects=True)
-                            github_status = "OK" if r.status_code == 200 else "Broken"
-                        except Exception as e:
-                            logger.warning(f"Error verificando enlace GitHub {github_link}: {e}")
-                            github_status = "Error"
+                        # Si es string, conviértelo a lista de dicts
+                        if isinstance(result["authors"], str):
+                            authors = [{"name": n.strip()} for n in result["authors"].split(",") if n.strip()]
+                        elif isinstance(result["authors"], list):
+                            authors = result["authors"]
+                    categories = result.get("categories", [])
+                    arxiv_url = result.get("url", "") or result.get("link_article", "")
+                    pdf_url = result.get("pdf_url", "")
+                    # Si pdf_url está vacío pero arxiv_url existe, construye el pdf_url
+                    if not pdf_url and arxiv_url and "/abs/" in arxiv_url:
+                        pdf_url = arxiv_url.replace("/abs/", "/pdf/") + ".pdf"
+                    # Si arxiv_url está vacío pero pdf_url existe, construye el arxiv_url
+                    if not arxiv_url and pdf_url and "/pdf/" in pdf_url:
+                        arxiv_url = pdf_url.replace("/pdf/", "/abs/").replace(".pdf", "")
                     # Construir el resultado procesado
                     processed = {
-                        "id": f"arxiv-{entry_id}" if entry_id else f"arxiv-{hash(title)}",
+                        "id": result.get("id") or f"arxiv-{hash(title)}",
                         "title": title,
                         "abstract": abstract,
                         "authors": authors,
-                        "published": self._format_date(result.get("published", "")),
+                        "published": result.get("published", ""),
                         "categories": categories,
-                        "primary_category": categories[0] if categories else "",
-                        "pdf_url": arxiv_url.replace("/abs/", "/pdf/") + ".pdf" if arxiv_url else "",
+                        "primary_category": result.get("primary_category", categories[0] if categories else ""),
+                        "pdf_url": pdf_url,
                         "url": arxiv_url,
                         "source": "arXiv",
                         "relevance": self._calculate_relevance({
                             "title": title,
                             "abstract": abstract
                         }, query),
-                        "github_links": github_links,
-                        "github_link": github_link,
-                        "github_status": github_status,
+                        "github_links": result.get("github_links", []),
+                        "github_link": result.get("github_link", ""),
+                        "github_status": result.get("github_status", ""),
                         "version": result.get("version", None),
                         "doi": result.get("doi", ""),
                     }
-                    
                     # Añadir campos opcionales
                     optional_fields = [
                         "github_link", "github_status", "comment",
@@ -312,16 +295,16 @@ class SourceProcessor:
                     for field in optional_fields:
                         if field in result and result[field] is not None:
                             processed[field] = result[field]
-                    
                     processed_results.append(processed)
-                    
                 except Exception as e:
                     logger.error(f"Error procesando resultado de ArXiv: {str(e)}", exc_info=True)
                     continue
-            
+
+            # LOG: Mostrar los resultados procesados antes de devolverlos
+            import json
+            logger.info(f"[_process_arxiv] Resultados procesados: {json.dumps(processed_results, ensure_ascii=False, indent=2)[:2000]}")
             logger.info(f"ArXiv devolvió {len(processed_results)} resultados válidos de {len(arxiv_results)} obtenidos")
             return processed_results
-            
         except Exception as e:
             error_msg = f"Error en la búsqueda de ArXiv: {str(e)}"
             logger.error(error_msg, exc_info=True)
