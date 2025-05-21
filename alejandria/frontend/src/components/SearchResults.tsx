@@ -160,6 +160,15 @@ export const SearchResults: React.FC = () => {
 
   const handleSearch = () => {
     if (!query.trim()) return;
+    // LOG: Mostrar en consola lo que selecciona el usuario antes de enviar
+    console.log("[Search] Parámetros enviados:", {
+      query,
+      max_results: maxResults,
+      sortby: sortBy,
+      type_query: typeQuery,
+      start: 0,
+      sortorder: 'descending'
+    });
     setStatus('Iniciando búsqueda en Arxiv...');
     setIsSearching(true);
     setResults({});
@@ -169,6 +178,9 @@ export const SearchResults: React.FC = () => {
       sources: ['arxiv'],
       max_results: maxResults,
       sortby: sortBy,
+      type_query: typeQuery,
+      start: 0,
+      sortorder: 'descending',
       timestamp: new Date().toISOString()
     });
   };
@@ -178,6 +190,11 @@ export const SearchResults: React.FC = () => {
       prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
     );
   };
+
+  // También puedes agregar logs en los handlers de los filtros para ver cambios en tiempo real:
+  useEffect(() => {
+    console.log("[Filtro] sortBy:", sortBy, "| maxResults:", maxResults, "| typeQuery:", typeQuery);
+  }, [sortBy, maxResults, typeQuery]);
 
   return (
     <Box sx={{ width: '100%' }}>
@@ -265,6 +282,20 @@ export const SearchResults: React.FC = () => {
               sx={{ mt: -1 }}
             />
           </Box>
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel id="type-query-label">Tipo</InputLabel>
+            <Select
+              labelId="type-query-label"
+              value={typeQuery}
+              label="Tipo"
+              onChange={e => setTypeQuery(e.target.value)}
+              disabled={isSearching}
+            >
+              <MenuItem value="all">Todo</MenuItem>
+              <MenuItem value="title">Título</MenuItem>
+              <MenuItem value="author">Autor</MenuItem>
+            </Select>
+          </FormControl>
         </MuiBox>
         {status && (
           <Box sx={{ mt: 2, mb: 1 }}>
