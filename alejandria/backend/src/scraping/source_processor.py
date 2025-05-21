@@ -7,6 +7,7 @@ import logging
 # Importar agentes
 from .agent_arxiv import ArxivAgent
 from .agent_tds import TdsAgent
+from .agent_link_extractor import extract_github_links  # <-- Agrega este import
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -229,39 +230,40 @@ class SourceProcessor:
             processed_results = []
             for result in arxiv_results:
                 try:
-                    if not isinstance(result, dict):
-                        logger.warning(f"Resultado de ArXiv no es un diccionario: {result}")
-                        continue
-                        
                     # Extraer información básica con valores por defecto seguros
                     title = result.get("title", "Sin título").strip()
                     abstract = result.get("summary", result.get("abstract", "")).strip()
-                    
-                    # Procesar autores
                     authors = []
                     if "authors" in result:
                         authors_str = result["authors"]
                         if isinstance(authors_str, str):
-                            # Formato: "Author1, Author2, ..."
                             authors = [{"name": author.strip()} for author in authors_str.split(",") if author.strip()]
                         elif isinstance(authors_str, list):
                             authors = [{"name": str(author).strip()} for author in authors_str if str(author).strip()]
-                    
-                    # Procesar categorías (usar main_topics si está disponible)
                     categories = []
                     if "main_topics" in result and isinstance(result["main_topics"], list):
                         categories = [str(topic).strip() for topic in result["main_topics"] if str(topic).strip()]
-                    
-                    # Obtener URL y extraer ID de arXiv
                     arxiv_url = result.get("link", "")
                     entry_id = ""
                     if arxiv_url:
-                        # Intentar extraer el ID de la URL (formato: https://arxiv.org/abs/1234.56789)
                         import re
                         match = re.search(r'arxiv\.org\/abs\/([^\/]+)', arxiv_url)
                         if match:
                             entry_id = f"arxiv:{match.group(1)}"
-                    
+                    # Extraer links de GitHub usando el agente extractor
+                    github_links = extract_github_links(abstract)
+                    github_link = github_links[0] if github_links else ""
+                    # Verificar estado del enlace de GitHub
+                    github_status = "No link"
+                    if github_link:
+                        try:
+                            import requests
+                            github_link = github_link.rstrip(".,;:!?\"')")
+                            r = requests.head(github_link, timeout=5, allow_redirects=True)
+                            github_status = "OK" if r.status_code == 200 else "Broken"
+                        except Exception as e:
+                            logger.warning(f"Error verificando enlace GitHub {github_link}: {e}")
+                            github_status = "Error"
                     # Construir el resultado procesado
                     processed = {
                         "id": f"arxiv-{entry_id}" if entry_id else f"arxiv-{hash(title)}",
@@ -273,11 +275,16 @@ class SourceProcessor:
                         "primary_category": categories[0] if categories else "",
                         "pdf_url": arxiv_url.replace("/abs/", "/pdf/") + ".pdf" if arxiv_url else "",
                         "url": arxiv_url,
-                        "source": "ArXiv",
+                        "source": "arXiv",
                         "relevance": self._calculate_relevance({
                             "title": title,
                             "abstract": abstract
-                        }, query)
+                        }, query),
+                        "github_links": github_links,
+                        "github_link": github_link,
+                        "github_status": github_status,
+                        "version": result.get("version", None),
+                        "doi": result.get("doi", ""),
                     }
                     
                     # Añadir campos opcionales

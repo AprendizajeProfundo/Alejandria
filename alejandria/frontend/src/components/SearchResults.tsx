@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Paper, 
-  Typography, 
-  Box, 
-  LinearProgress, 
-  List, 
-  ListItem, 
-  ListItemText, 
-  Divider, 
-  Chip, 
+import {
+  Paper,
+  Typography,
+  Box,
+  LinearProgress,
+  List,
+  ListItem,
+  ListItemText,
+  Divider,
+  Chip,
   TextField,
   Button,
   IconButton,
@@ -18,13 +18,13 @@ import {
   AccordionSummary,
   AccordionDetails,
   Avatar,
-  ListItemAvatar,
-  ListItemButton,
-  Collapse,
+  ListItemIcon,
   Alert,
   Tooltip,
   alpha,
-  useTheme
+  useTheme,
+  Checkbox,
+  Link as MuiLink
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
@@ -36,6 +36,9 @@ import {
   LibraryBooks as LibraryIcon
 } from '@mui/icons-material';
 import { useWebSocket } from '../hooks/useWebSocket';
+import GitHubIcon from '@mui/icons-material/GitHub';
+import CancelIcon from '@mui/icons-material/Cancel';
+import DescriptionIcon from '@mui/icons-material/Description';
 
 interface SearchResult {
   id: string;
@@ -47,6 +50,13 @@ interface SearchResult {
   url: string;
   source: string;
   relevance?: number;
+  primary_category?: string;
+  version?: string | null;
+  doi?: string;
+  pdf_url?: string;
+  github_links?: string[];
+  github_link?: string;
+  github_status?: string;
 }
 
 const SourceIcon = ({ source }: { source: string }) => {
@@ -60,128 +70,14 @@ const SourceIcon = ({ source }: { source: string }) => {
   }
 };
 
-const ResultItem = ({ result }: { result: SearchResult }) => {
-  const [expanded, setExpanded] = React.useState(false);
-  const theme = useTheme();
-
-  return (
-    <Paper 
-      elevation={1} 
-      sx={{ 
-        mb: 2, 
-        overflow: 'hidden',
-        borderLeft: `3px solid ${theme.palette.primary.main}`
-      }}
-    >
-      <ListItemButton onClick={() => setExpanded(!expanded)}>
-        <ListItemAvatar>
-          <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
-            <SourceIcon source={result.source} />
-          </Avatar>
-        </ListItemAvatar>
-        <ListItemText
-          primary={
-            <Typography 
-              variant="subtitle1" 
-              component="div"
-              sx={{
-                fontWeight: 500,
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              {result.title}
-            </Typography>
-          }
-          secondary={
-            <>
-              <Typography
-                component="span"
-                variant="body2"
-                color="text.primary"
-                sx={{
-                  display: 'block',
-                  mt: 0.5,
-                  mb: 0.5,
-                  fontStyle: 'italic'
-                }}
-              >
-                {result.authors?.map(a => a.name).join(', ')}
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
-                <Chip 
-                  size="small" 
-                  label={result.source} 
-                  color="primary" 
-                  variant="outlined"
-                />
-                {result.published && (
-                  <Chip 
-                    size="small" 
-                    label={new Date(result.published).toLocaleDateString()} 
-                    variant="outlined"
-                  />
-                )}
-              </Box>
-            </>
-          }
-        />
-        {expanded ? <ExpandMoreIcon /> : <ExpandMoreIcon />}
-      </ListItemButton>
-      
-      <Collapse in={expanded} timeout="auto" unmountOnExit>
-        <Box sx={{ p: 2, pt: 0, bgcolor: theme.palette.background.default }}>
-          <Typography variant="body2" paragraph>
-            {result.abstract || 'No hay resumen disponible.'}
-          </Typography>
-          
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {result.categories?.map((cat, i) => (
-              <Chip 
-                key={i} 
-                label={cat} 
-                size="small" 
-                variant="outlined"
-              />
-            ))}
-          </Box>
-          
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2, gap: 1 }}>
-            {result.url && (
-              <Tooltip title="Ver en la fuente original">
-                <IconButton 
-                  size="small" 
-                  component="a" 
-                  href={result.url} 
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <OpenInNewIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
-            {result.url?.includes('arxiv') && (
-              <Tooltip title="Ver PDF">
-                <IconButton 
-                  size="small" 
-                  component="a" 
-                  href={result.url.replace('/abs/', '/pdf/') + '.pdf'} 
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <PdfIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
-          </Box>
-        </Box>
-      </Collapse>
-    </Paper>
-  );
-};
+// Resalta los términos de búsqueda en el resumen
+function highlightText(text: string, query: string) {
+  if (!query) return text;
+  const words = query.split(/\s+/).filter(Boolean);
+  if (!words.length) return text;
+  const pattern = new RegExp(`(${words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi');
+  return text.replace(pattern, match => `<mark style="background-color: #ffe082; color: #222;">${match}</mark>`);
+}
 
 export const SearchResults: React.FC = () => {
   const theme = useTheme();
@@ -190,18 +86,15 @@ export const SearchResults: React.FC = () => {
   const [results, setResults] = useState<Record<string, SearchResult[]>>({});
   const [status, setStatus] = useState<string>('');
   const [sources, setSources] = useState<string[]>([]);
-  const [activeSource, setActiveSource] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
   const { send, addMessageHandler, isConnected, error } = useWebSocket('ws://localhost:8100/ws/search');
 
-  // Manejar mensajes del WebSocket
   useEffect(() => {
     if (!addMessageHandler) return;
 
     const handleMessage = (event: MessageEvent) => {
       try {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-        console.log('Mensaje recibido:', data);
-
         switch (data.type) {
           case 'processing_started':
             setStatus(`Buscando en Arxiv...`);
@@ -209,7 +102,6 @@ export const SearchResults: React.FC = () => {
             setResults({});
             setSources(['arxiv']);
             break;
-
           case 'update':
             if (data.status === 'started') {
               setStatus(`Buscando en ${data.source}...`);
@@ -218,12 +110,10 @@ export const SearchResults: React.FC = () => {
                 ...prev,
                 [data.source]: data.results
               }));
-              setActiveSource(data.source);
             } else if (data.status === 'completed') {
               setStatus(`Búsqueda en ${data.source} completada: ${data.data?.count || 0} resultados`);
             }
             break;
-
           case 'search_completed':
             setIsSearching(false);
             setStatus(`Búsqueda completada. Total de resultados: ${data.total_results || 0}`);
@@ -234,31 +124,23 @@ export const SearchResults: React.FC = () => {
               }));
             }
             break;
-
           case 'search_started':
             setIsSearching(true);
             setStatus(`Buscando: ${data.query}`);
             break;
-
-
           case 'error':
             setIsSearching(false);
             setStatus(`Error: ${data.error || 'Error desconocido'}`);
-            console.error('Error del servidor:', data.error);
             break;
-
           default:
-            console.log('Mensaje no manejado:', data);
         }
       } catch (e) {
+        // eslint-disable-next-line no-console
         console.error('Error procesando mensaje:', e);
       }
     };
 
-    // Registrar el manejador de mensajes
     const removeHandler = addMessageHandler(handleMessage);
-
-    // Limpieza al desmontar
     return () => {
       removeHandler();
     };
@@ -266,38 +148,31 @@ export const SearchResults: React.FC = () => {
 
   const handleSearch = () => {
     if (!query.trim()) return;
-    
     setStatus('Iniciando búsqueda en Arxiv...');
     setIsSearching(true);
     setResults({});
-    
-    // Forzar solo búsqueda en Arxiv
     send({
       type: 'search',
       query: query,
-      sources: ['arxiv'],  // Solo Arxiv
+      sources: ['arxiv'],
       timestamp: new Date().toISOString()
     });
   };
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Fecha no disponible';
-    try {
-      return new Date(dateString).toLocaleDateString();
-    } catch (e) {
-      return dateString;
-    }
+  const handleToggle = (id: string) => {
+    setSelected(prev =>
+      prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
+    );
   };
 
   return (
     <Box sx={{ width: '100%' }}>
       {/* Controles de búsqueda */}
-      <Paper elevation={2} sx={{ p: 3, mb: 3, position: 'sticky', top: 16, zIndex: 1, maxWidth: '800px', mx: 'auto', width: '100%' }}>
+      <Paper elevation={2} sx={{ p: 3, mb: 3, maxWidth: '800px', mx: 'auto', width: '100%' }}>
         <Typography variant="h5" gutterBottom>Buscador de Artículos Académicos</Typography>
         <Typography variant="body2" color="text.secondary" gutterBottom>
           Busca artículos académicos en Arxiv
         </Typography>
-        
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mt: 2 }}>
           <Box sx={{ flexGrow: 1 }}>
             <TextField
@@ -317,8 +192,8 @@ export const SearchResults: React.FC = () => {
                 ),
                 endAdornment: query && (
                   <InputAdornment position="end">
-                    <IconButton 
-                      size="small" 
+                    <IconButton
+                      size="small"
                       onClick={() => setQuery('')}
                       edge="end"
                       disabled={isSearching}
@@ -335,7 +210,7 @@ export const SearchResults: React.FC = () => {
             onClick={handleSearch}
             disabled={isSearching || !isConnected || !query.trim()}
             startIcon={isSearching ? <CircularProgress size={20} color="inherit" /> : <SearchIcon />}
-            sx={{ 
+            sx={{
               whiteSpace: 'nowrap',
               minWidth: '120px',
               height: '40px'
@@ -344,22 +219,20 @@ export const SearchResults: React.FC = () => {
             {isSearching ? 'Buscando...' : 'Buscar'}
           </Button>
         </Box>
-
         {status && (
           <Box sx={{ mt: 2, mb: 1 }}>
             <Box sx={{ mb: 1 }}>
-          <Typography variant="body2" color="text.secondary">
-            {status}
-          </Typography>
-        </Box>
+              <Typography variant="body2" color="text.secondary">
+                {status}
+              </Typography>
+            </Box>
             {isSearching && <LinearProgress sx={{ height: 2 }} />}
           </Box>
         )}
-
         {error && (
-          <Alert 
-            severity="error" 
-            sx={{ 
+          <Alert
+            severity="error"
+            sx={{
               mt: 2,
               '& .MuiAlert-message': {
                 width: '100%'
@@ -368,9 +241,9 @@ export const SearchResults: React.FC = () => {
           >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
               <span>Error: {error}</span>
-              <Button 
-                color="inherit" 
-                size="small" 
+              <Button
+                color="inherit"
+                size="small"
                 onClick={() => window.location.reload()}
               >
                 Recargar
@@ -380,13 +253,13 @@ export const SearchResults: React.FC = () => {
         )}
       </Paper>
 
-      {/* Resultados */}
+      {/* Resultados en acordeón por fuente */}
       <Box sx={{ width: '100%' }}>
         {sources.length === 0 && !isSearching && (
-          <Paper 
-            elevation={0} 
-            sx={{ 
-              p: 4, 
+          <Paper
+            elevation={0}
+            sx={{
+              p: 4,
               textAlign: 'center',
               bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)',
               border: `1px dashed ${theme.palette.divider}`,
@@ -405,12 +278,8 @@ export const SearchResults: React.FC = () => {
 
         {sources.map((source) => {
           const sourceResults = results[source] || [];
-          
-          // Forzar visualización de Arxiv
-          if (source !== 'arxiv') return null;
-          
           return (
-            <Accordion 
+            <Accordion
               key={source}
               defaultExpanded
               elevation={2}
@@ -447,10 +316,10 @@ export const SearchResults: React.FC = () => {
                 }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                  <Avatar 
-                    sx={{ 
-                      width: 32, 
-                      height: 32, 
+                  <Avatar
+                    sx={{
+                      width: 32,
+                      height: 32,
                       mr: 2,
                       bgcolor: theme.palette.primary.main,
                       color: theme.palette.primary.contrastText
@@ -461,25 +330,132 @@ export const SearchResults: React.FC = () => {
                   <Typography sx={{ fontWeight: 600, flexGrow: 1 }}>
                     {source.charAt(0).toUpperCase() + source.slice(1)}
                   </Typography>
-                  <Chip 
-                    label={sourceResults.length} 
-                    size="small" 
+                  <Chip
+                    label={sourceResults.length}
+                    size="small"
                     color="primary"
                     variant="outlined"
-                    sx={{ 
+                    sx={{
                       mr: 1,
                       fontWeight: 500
-                    }} 
+                    }}
                   />
                 </Box>
               </AccordionSummary>
-              
               <AccordionDetails sx={{ p: 0, bgcolor: 'background.paper' }}>
                 {sourceResults.length > 0 ? (
                   <List sx={{ width: '100%', p: 0 }}>
-                    {sourceResults.map((result, index) => (
-                      <React.Fragment key={result.id || index}>
-                        <ResultItem result={result} />
+                    {sourceResults.map((article) => (
+                      <React.Fragment key={article.id}>
+                        <ListItem
+                          alignItems="flex-start"
+                          sx={{
+                            bgcolor: selected.includes(article.id) ? 'primary.dark' : 'background.paper',
+                            borderRadius: 2,
+                            mb: 2,
+                            boxShadow: selected.includes(article.id) ? 4 : 1,
+                            transition: 'background 0.2s'
+                          }}
+                        >
+                          {/* Checkbox a la izquierda */}
+                          <ListItemIcon sx={{ minWidth: 36 }}>
+                            <Checkbox
+                              edge="start"
+                              checked={selected.includes(article.id)}
+                              onChange={() => handleToggle(article.id)}
+                              color="primary"
+                            />
+                          </ListItemIcon>
+                          <ListItemIcon>
+                            <DescriptionIcon color="primary" />
+                          </ListItemIcon>
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+                              {article.source} | {article.primary_category || ''} {article.version ? `| v${article.version}` : ''}
+                            </Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                              <MuiLink href={article.url} target="_blank" underline="hover" color="inherit">
+                                {article.title}
+                              </MuiLink>
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              sx={{ mb: 1 }}
+                              component="span"
+                              dangerouslySetInnerHTML={{
+                                __html: highlightText(article.abstract, query)
+                              }}
+                            />
+                            <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                              <Typography variant="caption" color="text.secondary">
+                                {article.published && `Publicado: ${new Date(article.published).toLocaleDateString()}`}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {article.authors.map(a => a.name).join(', ')}
+                              </Typography>
+                              {article.doi && (
+                                <Chip
+                                  label="DOI"
+                                  component="a"
+                                  href={article.doi}
+                                  target="_blank"
+                                  clickable
+                                  size="small"
+                                  sx={{ ml: 1 }}
+                                />
+                              )}
+                              {article.pdf_url && (
+                                <Chip
+                                  label="PDF"
+                                  component="a"
+                                  href={article.pdf_url}
+                                  target="_blank"
+                                  clickable
+                                  size="small"
+                                  sx={{ ml: 1 }}
+                                />
+                              )}
+                              {article.url && (
+                                <Tooltip title="Ver en el portal original">
+                                  <IconButton
+                                    size="small"
+                                    component="a"
+                                    href={article.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    sx={{ ml: 1 }}
+                                  >
+                                    <OpenInNewIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                              {article.github_link ? (
+                                <Tooltip title={`GitHub: ${article.github_link}`}>
+                                  <Chip
+                                    icon={<GitHubIcon />}
+                                    label={article.github_status === 'OK' ? 'GitHub OK' : (article.github_status === 'Broken' ? 'GitHub Broken' : article.github_status)}
+                                    color={article.github_status === 'OK' ? 'success' : (article.github_status === 'Broken' ? 'error' : 'default')}
+                                    component="a"
+                                    href={article.github_link}
+                                    target="_blank"
+                                    clickable
+                                    size="small"
+                                    sx={{ ml: 1 }}
+                                  />
+                                </Tooltip>
+                              ) : (
+                                <Chip
+                                  icon={<CancelIcon />}
+                                  label="Sin GitHub"
+                                  color="default"
+                                  size="small"
+                                  sx={{ ml: 1 }}
+                                />
+                              )}
+                            </Box>
+                          </Box>
+                        </ListItem>
+                        <Divider />
                       </React.Fragment>
                     ))}
                   </List>
@@ -494,7 +470,6 @@ export const SearchResults: React.FC = () => {
             </Accordion>
           );
         })}
-        
         {isSearching && Object.keys(results).length === 0 && (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <CircularProgress size={40} thickness={4} />
