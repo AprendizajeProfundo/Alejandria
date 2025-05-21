@@ -107,6 +107,9 @@ class ArxivAgent:
                         logging.warning(f"Error verificando enlace GitHub {github_link}: {e}")
                         github_status = "Error"
                 
+                # Fecha de publicación
+                published = entry.find("atom:published", ns).text.strip() if entry.find("atom:published", ns) is not None else ""
+                
                 # Crear diccionario del artículo
                 article = {
                     "title": title,
@@ -118,6 +121,7 @@ class ArxivAgent:
                     "github_link": github_link,
                     "github_status": github_status,
                     "url": link_article,  # <-- asegúrate de incluir el link al portal
+                    "published": published,  # <-- añade la fecha de publicación
                 }
                 articles.append(article)
             except Exception as e:
