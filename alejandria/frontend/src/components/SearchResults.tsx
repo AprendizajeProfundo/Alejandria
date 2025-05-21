@@ -273,6 +273,27 @@ export const SearchResults: React.FC = () => {
                     </IconButton>
                   </InputAdornment>
                 ),
+                // Elimina el color azul de autocompletado del navegador
+                sx: {
+                  '& input:-webkit-autofill': {
+                    WebkitBoxShadow: '0 0 0 100px transparent inset !important',
+                    WebkitTextFillColor: '0 0 255 100px !important',
+                    caretColor: 'inherit !important',
+                    transition: 'background-color 9999s ease-in-out 0s',
+                  },
+                  '& input:-webkit-autofill:focus': {
+                    WebkitBoxShadow: '0 0 0 100px transparent inset !important',
+                    WebkitTextFillColor: '0 0 255 100px !important',
+                  },
+                  '& input:-webkit-autofill:hover': {
+                    WebkitBoxShadow: '0 0 0 100px transparent inset !important',
+                    WebkitTextFillColor: '0 0 255 100px !important',
+                  },
+                  '& input:-webkit-autofill:active': {
+                    WebkitBoxShadow: '0 0 0 100px transparent inset !important',
+                    WebkitTextFillColor: '0 0 255 100px !important',
+                  }
+                }
               }}
             />
           </Box>
