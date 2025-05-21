@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Paper,
   Typography,
@@ -196,6 +196,27 @@ export const SearchResults: React.FC = () => {
     console.log("[Filtro] sortBy:", sortBy, "| maxResults:", maxResults, "| typeQuery:", typeQuery);
   }, [sortBy, maxResults, typeQuery]);
 
+  // Ordenar resultados en el frontend según el filtro seleccionado
+  const sortedResults = useMemo(() => {
+    const sorted: Record<string, SearchResult[]> = {};
+    for (const source of sources) {
+      let arr = results[source] || [];
+      if (sortBy === 'lastUpdatedDate' || sortBy === 'submittedDate') {
+        arr = [...arr].sort((a, b) => {
+          const dateA = new Date(a.published || '').getTime();
+          const dateB = new Date(b.published || '').getTime();
+          return sortBy === 'lastUpdatedDate'
+            ? dateB - dateA
+            : dateA - dateB;
+        });
+      } else if (sortBy === 'relevance') {
+        arr = [...arr].sort((a, b) => (b.relevance || 0) - (a.relevance || 0));
+      }
+      sorted[source] = arr;
+    }
+    return sorted;
+  }, [results, sources, sortBy]);
+
   return (
     <Box sx={{ width: '100%' }}>
       {/* Controles de búsqueda */}
@@ -355,7 +376,7 @@ export const SearchResults: React.FC = () => {
         )}
 
         {sources.map((source) => {
-          const sourceResults = results[source] || [];
+          const sourceResults = sortedResults[source] || [];
           return (
             <Accordion
               key={source}
@@ -387,13 +408,11 @@ export const SearchResults: React.FC = () => {
                   },
                   '& .MuiAccordionSummary-content': {
                     alignItems: 'center',
-                    '&.Mui-expanded': {
-                      margin: '12px 0',
-                    },
+                    gap: 1
                   },
                 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
                   <Avatar
                     sx={{
                       width: 32,
@@ -408,13 +427,19 @@ export const SearchResults: React.FC = () => {
                   <Typography sx={{ fontWeight: 600, flexGrow: 1 }}>
                     {source.charAt(0).toUpperCase() + source.slice(1)}
                   </Typography>
+                  {/* Palabras clave usadas en la búsqueda */}
+                  {query && (
+                    <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
+                      | <b>{query}</b>
+                    </Typography>
+                  )}
                   <Chip
                     label={sourceResults.length}
                     size="small"
                     color="primary"
                     variant="outlined"
                     sx={{
-                      mr: 1,
+                      ml: 2,
                       fontWeight: 500
                     }}
                   />
