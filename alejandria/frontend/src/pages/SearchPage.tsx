@@ -55,7 +55,7 @@ import Sidebar from '../components/Sidebar';
 import Topbar from '../components/Topbar';
 import { SearchResults } from '../components/SearchResults';
 
-const DRAWER_WIDTH_OPEN = 220;
+const DRAWER_WIDTH_OPEN = 266;
 const DRAWER_WIDTH_COLLAPSED = 64;
 
 const SearchPage: React.FC = (): React.ReactElement => {

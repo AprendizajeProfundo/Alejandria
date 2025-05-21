@@ -1,10 +1,12 @@
-import React from 'react';
-import { Drawer, List, ListItem, ListItemIcon, ListItemText, IconButton, Divider, Tooltip, Checkbox, Box } from '@mui/material';
+import React, { useState } from 'react';
+import { Drawer, List, ListItem, ListItemIcon, ListItemText, IconButton, Divider, Tooltip, Checkbox, Box, Collapse } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import SourceIcon from '@mui/icons-material/Source';
 import SettingsIcon from '@mui/icons-material/Settings';
 import HistoryIcon from '@mui/icons-material/History';
 import AllInclusiveIcon from '@mui/icons-material/AllInclusive';
+import ExpandLess from '@mui/icons-material/ExpandLess';
+import ExpandMore from '@mui/icons-material/ExpandMore';
 
 const sources = [
   { key: 'arxiv', label: 'Arxiv', icon: <SourceIcon /> },
@@ -19,6 +21,13 @@ export default function Sidebar({ selectedSources, setSelectedSources, open, set
   setOpen: (open: boolean) => void,
   drawerWidth: number
 }) {
+  const [sourcesOpen, setSourcesOpen] = useState(open);
+
+  React.useEffect(() => {
+    if (open) setSourcesOpen(true);
+    else setSourcesOpen(false);
+  }, [open]);
+
   const handleToggleSource = (key: string) => {
     if (selectedSources.includes(key)) {
       setSelectedSources(selectedSources.filter(s => s !== key));
@@ -33,76 +42,220 @@ export default function Sidebar({ selectedSources, setSelectedSources, open, set
     } else {
       setSelectedSources(sources.map(s => s.key));
     }
+    setSourcesOpen(true);
   };
+
+  const handleCollapsedAllClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setOpen(true);
+    setSourcesOpen(true);
+  };
+
+  // Hacer toda la caja de la hamburguesa clickeable
+  const handleHamburgerClick = () => setOpen(!open);
 
   return (
     <Drawer
-      variant="permanent" // Cambia de "persistent" a "permanent"
+      variant="permanent"
       open={open}
       PaperProps={{
         sx: {
-          width: open ? drawerWidth : 56, // 56px para mini-variant cuando está colapsado
+          width: open ? drawerWidth : 56, // <--- AQUÍ defines el ancho expandido y colapsado
           bgcolor: 'background.paper',
           borderRight: '1px solid',
           borderColor: 'divider',
-          transition: 'width 0.2s',
+          transition: 'width 0.5s',
           zIndex: 1200,
           overflowX: 'hidden',
           boxSizing: 'border-box'
         }
       }}
       ModalProps={{
-        keepMounted: true, // Mejora el rendimiento en móviles
+        keepMounted: true,
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', p: 1, justifyContent: open ? 'flex-end' : 'center' }}>
-        <IconButton onClick={() => setOpen(!open)} size="small" color="primary">
-          <MenuIcon />
-        </IconButton>
+      {/* Hamburguesa arriba, toda la caja clickeable */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: 64,
+          width: '100%',
+          mb: 1,
+          cursor: 'pointer',
+          userSelect: 'none',
+          '&:hover': {
+            bgcolor: 'action.hover'
+          }
+        }}
+        onClick={handleHamburgerClick}
+        tabIndex={0}
+        role="button"
+        aria-label="Expandir/collapse menú"
+      >
+        <MenuIcon sx={{
+          fontSize: 28,
+          color: 'primary.main',
+          transition: 'transform 0.2s',
+          ...(open && { transform: 'rotate(90deg)' })
+        }} />
       </Box>
       <Divider />
       <List>
-        <Tooltip title="Todas las fuentes" placement="right">
-          <ListItem button onClick={handleSelectAll} selected={selectedSources.length === sources.length}>
-            <ListItemIcon><AllInclusiveIcon color={selectedSources.length === sources.length ? 'primary' : 'inherit'} /></ListItemIcon>
-            {open && <ListItemText primary="Todas las fuentes" />}
+        <Tooltip title="Fuentes" placement="right">
+          <ListItem
+            button
+            onClick={open ? handleSelectAll : handleCollapsedAllClick}
+            selected={selectedSources.length === sources.length}
+            sx={{
+              pl: open ? 2 : 0,
+              pr: open ? 2 : 0,
+              justifyContent: 'center',
+              minHeight: 48,
+              height: 48,
+              width: '100%',
+              overflow: 'hidden',
+              alignItems: 'center'
+            }}
+          >
+            <ListItemIcon
+              sx={{
+                minWidth: 0,
+                mr: open ? 2 : 0,
+                justifyContent: 'center',
+                alignItems: 'center',
+                display: 'flex'
+              }}
+            >
+              <AllInclusiveIcon
+                color={selectedSources.length === sources.length ? 'primary' : 'inherit'}
+                sx={{ fontSize: 28 }}
+              />
+            </ListItemIcon>
+            {open && (
+              <ListItemText
+                primary="Fuentes"
+                primaryTypographyProps={{
+                  noWrap: true,
+                  sx: {
+                    fontWeight: 600,
+                    fontSize: 17,
+                    letterSpacing: 0.2,
+                    color: theme => theme.palette.text.primary,
+                    lineHeight: 1.2,
+                  }
+                }}
+                sx={{
+                  m: 0,
+                  minWidth: 0,
+                  maxWidth: '100%',
+                  overflow: 'hidden'
+                }}
+              />
+            )}
             {open && (
               <Checkbox
                 checked={selectedSources.length === sources.length}
                 tabIndex={-1}
                 disableRipple
+                sx={{ ml: 1, p: 0.5 }}
               />
+            )}
+            {open && (
+              <IconButton
+                size="small"
+                onClick={e => {
+                  e.stopPropagation();
+                  setSourcesOpen(prev => !prev);
+                }}
+                sx={{ ml: 1 }}
+              >
+                {sourcesOpen ? <ExpandLess /> : <ExpandMore />}
+              </IconButton>
             )}
           </ListItem>
         </Tooltip>
-        {sources.map(source => (
-          <Tooltip key={source.key} title={source.label} placement="right">
-            <ListItem button onClick={() => handleToggleSource(source.key)} selected={selectedSources.includes(source.key)}>
-              <ListItemIcon>{source.icon}</ListItemIcon>
-              {open && <ListItemText primary={source.label} />}
-              {open && (
-                <Checkbox
-                  checked={selectedSources.includes(source.key)}
-                  tabIndex={-1}
-                  disableRipple
-                />
-              )}
-            </ListItem>
-          </Tooltip>
-        ))}
+        <Collapse in={sourcesOpen && open} timeout="auto" unmountOnExit>
+          <List component="div" disablePadding>
+            {sources.map(source => (
+              <Tooltip key={source.key} title={source.label} placement="right">
+                <ListItem
+                  button
+                  onClick={() => handleToggleSource(source.key)}
+                  selected={selectedSources.includes(source.key)}
+                  sx={{
+                    pl: 4,
+                    minHeight: 40,
+                    height: 40,
+                    alignItems: 'center'
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 0, mr: 1.5, justifyContent: 'center', alignItems: 'center', display: 'flex' }}>
+                    {source.icon}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={source.label}
+                    primaryTypographyProps={{
+                      noWrap: true,
+                      sx: { fontSize: 15 }
+                    }}
+                    sx={{ m: 0, minWidth: 0 }}
+                  />
+                  <Checkbox
+                    checked={selectedSources.includes(source.key)}
+                    tabIndex={-1}
+                    disableRipple
+                    sx={{ ml: 1, p: 0.5 }}
+                  />
+                </ListItem>
+              </Tooltip>
+            ))}
+          </List>
+        </Collapse>
       </List>
       <Divider />
       <List>
         <Tooltip title="Búsquedas recientes" placement="right">
-          <ListItem button>
-            <ListItemIcon><HistoryIcon /></ListItemIcon>
-            {open && <ListItemText primary="Búsquedas recientes" />}
+          <ListItem button sx={{
+            minHeight: 48,
+            height: 48,
+            justifyContent: 'center',
+            alignItems: 'center',
+            pl: open ? 2 : 0,
+            pr: open ? 2 : 0
+          }}>
+            <ListItemIcon sx={{
+              minWidth: 0,
+              mr: open ? 2 : 0,
+              justifyContent: 'center',
+              alignItems: 'center',
+              display: 'flex'
+            }}>
+              <HistoryIcon sx={{ fontSize: 28 }} />
+            </ListItemIcon>
+            {open && <ListItemText primary="Búsquedas recientes" primaryTypographyProps={{ noWrap: true, fontSize: 16, fontWeight: 500 }} />}
           </ListItem>
         </Tooltip>
         <Tooltip title="Configuración" placement="right">
-          <ListItem button>
-            <ListItemIcon><SettingsIcon /></ListItemIcon>
-            {open && <ListItemText primary="Configuración" />}
+          <ListItem button sx={{
+            minHeight: 48,
+            height: 48,
+            justifyContent: 'center',
+            alignItems: 'center',
+            pl: open ? 2 : 0,
+            pr: open ? 2 : 0
+          }}>
+            <ListItemIcon sx={{
+              minWidth: 0,
+              mr: open ? 2 : 0,
+              justifyContent: 'center',
+              alignItems: 'center',
+              display: 'flex'
+            }}>
+              <SettingsIcon sx={{ fontSize: 28 }} />
+            </ListItemIcon>
+            {open && <ListItemText primary="Configuración" primaryTypographyProps={{ noWrap: true, fontSize: 16, fontWeight: 500 }} />}
           </ListItem>
         </Tooltip>
       </List>
