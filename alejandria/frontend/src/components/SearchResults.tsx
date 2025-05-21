@@ -76,7 +76,7 @@ const SourceIcon = ({ source }: { source: string }) => {
   }
 };
 
-// Resalta los términos de búsqueda en el resumen
+// Resalta los términos de búsqueda en el resumen (siempre usa el query original)
 function highlightText(text: string, query: string) {
   if (!query) return text;
   const words = query.split(/\s+/).filter(Boolean);
@@ -98,6 +98,7 @@ export const SearchResults: React.FC = () => {
   const [maxResults, setMaxResults] = useState(10);
   const [sortBy, setSortBy] = useState('relevance');
   const [typeQuery, setTypeQuery] = useState('all');
+  const [filterByDate, setFilterByDate] = useState<'none' | 'asc' | 'desc'>('none');
 
   const { send, addMessageHandler, isConnected, error } = useWebSocket('ws://localhost:8100/ws/search');
 
@@ -158,8 +159,13 @@ export const SearchResults: React.FC = () => {
     };
   }, [addMessageHandler]);
 
+  // Guardar el query original para el resaltado global
+  const [originalQuery, setOriginalQuery] = useState('');
+
+  // Cuando se hace una búsqueda, guarda el query original
   const handleSearch = () => {
     if (!query.trim()) return;
+    setOriginalQuery(query); // <-- guardar el query original para el resaltado
     // LOG: Mostrar en consola lo que selecciona el usuario antes de enviar
     console.log("[Search] Parámetros enviados:", {
       query,
@@ -196,26 +202,39 @@ export const SearchResults: React.FC = () => {
     console.log("[Filtro] sortBy:", sortBy, "| maxResults:", maxResults, "| typeQuery:", typeQuery);
   }, [sortBy, maxResults, typeQuery]);
 
-  // Ordenar resultados en el frontend según el filtro seleccionado
+  // Nuevo: Ordenar y filtrar resultados en el frontend según el filtro seleccionado
   const sortedResults = useMemo(() => {
     const sorted: Record<string, SearchResult[]> = {};
     for (const source of sources) {
       let arr = results[source] || [];
+      // Ordenamiento por menú principal
       if (sortBy === 'lastUpdatedDate' || sortBy === 'submittedDate') {
         arr = [...arr].sort((a, b) => {
           const dateA = new Date(a.published || '').getTime();
           const dateB = new Date(b.published || '').getTime();
-          return sortBy === 'lastUpdatedDate'
-            ? dateB - dateA
-            : dateA - dateB;
+          return dateB - dateA;
         });
       } else if (sortBy === 'relevance') {
         arr = [...arr].sort((a, b) => (b.relevance || 0) - (a.relevance || 0));
       }
+      // Filtro adicional por fecha (usuario puede cambiarlo después de mostrar resultados)
+      if (filterByDate === 'asc') {
+        arr = [...arr].sort((a, b) => {
+          const dateA = new Date(a.published || '').getTime();
+          const dateB = new Date(b.published || '').getTime();
+          return dateA - dateB;
+        });
+      } else if (filterByDate === 'desc') {
+        arr = [...arr].sort((a, b) => {
+          const dateA = new Date(a.published || '').getTime();
+          const dateB = new Date(b.published || '').getTime();
+          return dateB - dateA;
+        });
+      }
       sorted[source] = arr;
     }
     return sorted;
-  }, [results, sources, sortBy]);
+  }, [results, sources, sortBy, filterByDate]);
 
   return (
     <Box sx={{ width: '100%' }}>
@@ -373,6 +392,36 @@ export const SearchResults: React.FC = () => {
               Realiza una búsqueda para ver los resultados
             </Typography>
           </Paper>
+        )}
+
+        {/* Filtro adicional por fecha después de mostrar acordeones */}
+        {Object.keys(sortedResults).some(source => (sortedResults[source] || []).length > 0) && (
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              Ordenar resultados por fecha:
+            </Typography>
+            <Button
+              variant={filterByDate === 'none' ? 'contained' : 'outlined'}
+              size="small"
+              onClick={() => setFilterByDate('none')}
+            >
+              Sin filtro
+            </Button>
+            <Button
+              variant={filterByDate === 'desc' ? 'contained' : 'outlined'}
+              size="small"
+              onClick={() => setFilterByDate('desc')}
+            >
+              Más recientes primero
+            </Button>
+            <Button
+              variant={filterByDate === 'asc' ? 'contained' : 'outlined'}
+              size="small"
+              onClick={() => setFilterByDate('asc')}
+            >
+              Más antiguos primero
+            </Button>
+          </Box>
         )}
 
         {sources.map((source) => {
@@ -590,14 +639,15 @@ export const SearchResults: React.FC = () => {
                         <AccordionDetails>
                           <Box sx={{ pl: 1 }}>
                             <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-                              {article.source} | {article.primary_category || ''} {article.version ? `| v${article.version}` : ''}
+                              {article.source} | {article.primary_category || ''} {article.version ? `| v${article.version}` : ''} {query && `${query}`}
                             </Typography>
                             <Typography
                               variant="body2"
                               sx={{ mb: 1 }}
                               component="span"
+                              // Siempre resalta usando el query original, no el filtro actual
                               dangerouslySetInnerHTML={{
-                                __html: highlightText(article.abstract, query)
+                                __html: highlightText(article.abstract, originalQuery || query)
                               }}
                             />
                             <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mt: 1 }}>
