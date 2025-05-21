@@ -79,18 +79,18 @@ class ArxivAgent:
                 # Enlaces (PDF, DOI, etc.)
                 pdf_url = ""
                 doi = ""
-                github_links = []
-                github_link = ""
+                link_article = ""
                 for link in entry.findall("atom:link", ns):
                     href = link.attrib.get("href", "")
                     if link.attrib.get("title") == "pdf" and link.attrib.get("type") == "application/pdf":
                         pdf_url = href
                     elif link.attrib.get("title") == "doi" or "doi.org" in href:
                         doi = href
-                    # Extraer enlaces de GitHub directamente de los links atom
-                    if "github.com" in href:
-                        github_links.append(href)
-                # Si no hay links de GitHub en atom, buscar en el resumen como fallback
+                    if link.attrib.get("rel") == "alternate" and link.attrib.get("type") == "text/html":
+                        link_article = href
+                # Extraer enlaces de GitHub directamente de los links atom
+                github_links = []
+                github_link = ""
                 if not github_links and summary:
                     from .agent_link_extractor import extract_github_links
                     github_links = extract_github_links(summary)
@@ -117,6 +117,7 @@ class ArxivAgent:
                     "github_links": github_links,
                     "github_link": github_link,
                     "github_status": github_status,
+                    "url": link_article,  # <-- asegúrate de incluir el link al portal
                 }
                 articles.append(article)
             except Exception as e:

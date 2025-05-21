@@ -250,8 +250,8 @@ export const SearchResults: React.FC = () => {
             {isSearching ? 'Buscando...' : 'Buscar'}
           </Button>
         </Box>
-        {/* Filtros debajo del campo de búsqueda */}
-        <MuiBox sx={{ display: 'flex', gap: 3, alignItems: 'center', mt: 3, flexWrap: 'wrap' }}>
+        {/* Filtros debajo del campo de búsqueda, más espaciados y slider más grande */}
+        <MuiBox sx={{ display: 'flex', gap: 4, alignItems: 'center', mt: 4, mb: 2, flexWrap: 'wrap', justifyContent: 'space-between' }}>
           <FormControl size="small" sx={{ minWidth: 180 }}>
             <InputLabel id="sortby-label">Ordenar por</InputLabel>
             <Select
@@ -266,7 +266,21 @@ export const SearchResults: React.FC = () => {
               <MenuItem value="submittedDate">Fecha de envío</MenuItem>
             </Select>
           </FormControl>
-          <Box sx={{ minWidth: 220 }}>
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <InputLabel id="type-query-label">Tipo</InputLabel>
+            <Select
+              labelId="type-query-label"
+              value={typeQuery}
+              label="Tipo"
+              onChange={e => setTypeQuery(e.target.value)}
+              disabled={isSearching}
+            >
+              <MenuItem value="all">Todo</MenuItem>
+              <MenuItem value="title">Título</MenuItem>
+              <MenuItem value="author">Autor</MenuItem>
+            </Select>
+          </FormControl>
+          <Box sx={{ flexGrow: 1, minWidth: 320, maxWidth: 400 }}>
             <Typography id="slider-max-results" gutterBottom variant="caption" color="text.secondary">
               N° resultados: {maxResults}
             </Typography>
@@ -282,20 +296,6 @@ export const SearchResults: React.FC = () => {
               sx={{ mt: -1 }}
             />
           </Box>
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel id="type-query-label">Tipo</InputLabel>
-            <Select
-              labelId="type-query-label"
-              value={typeQuery}
-              label="Tipo"
-              onChange={e => setTypeQuery(e.target.value)}
-              disabled={isSearching}
-            >
-              <MenuItem value="all">Todo</MenuItem>
-              <MenuItem value="title">Título</MenuItem>
-              <MenuItem value="author">Autor</MenuItem>
-            </Select>
-          </FormControl>
         </MuiBox>
         {status && (
           <Box sx={{ mt: 2, mb: 1 }}>
@@ -424,37 +424,115 @@ export const SearchResults: React.FC = () => {
                 {sourceResults.length > 0 ? (
                   <List sx={{ width: '100%', p: 0 }}>
                     {sourceResults.map((article) => (
-                      <React.Fragment key={article.id}>
-                        <ListItem
-                          alignItems="flex-start"
+                      <Accordion
+                        key={article.id}
+                        sx={{
+                          mb: 1,
+                          borderRadius: 2,
+                          boxShadow: 1,
+                          bgcolor: selected.includes(article.id) ? 'primary.lighter' : 'background.paper'
+                        }}
+                      >
+                        <AccordionSummary
+                          expandIcon={<ExpandMoreIcon />}
                           sx={{
-                            bgcolor: selected.includes(article.id) ? 'primary.dark' : 'background.paper',
-                            borderRadius: 2,
-                            mb: 2,
-                            boxShadow: selected.includes(article.id) ? 4 : 1,
-                            transition: 'background 0.2s'
+                            minHeight: 48,
+                            '& .MuiAccordionSummary-content': {
+                              alignItems: 'center'
+                            }
                           }}
                         >
-                          {/* Checkbox a la izquierda */}
-                          <ListItemIcon sx={{ minWidth: 36 }}>
-                            <Checkbox
-                              edge="start"
-                              checked={selected.includes(article.id)}
-                              onChange={() => handleToggle(article.id)}
-                              color="primary"
-                            />
-                          </ListItemIcon>
-                          <ListItemIcon>
-                            <DescriptionIcon color="primary" />
-                          </ListItemIcon>
-                          <Box sx={{ flex: 1 }}>
+                          <Checkbox
+                            edge="start"
+                            checked={selected.includes(article.id)}
+                            onChange={() => handleToggle(article.id)}
+                            color="primary"
+                            sx={{ mr: 1 }}
+                          />
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1 }}>
+                            {article.title}
+                          </Typography>
+                          {/* Iconos cerca del título */}
+                          {/* GitHub solo si hay link */}
+                          {article.github_link && (
+                            <Tooltip title={`GitHub: ${article.github_link}`}>
+                              <IconButton
+                                size="small"
+                                component="a"
+                                href={article.github_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                sx={{ ml: 1 }}
+                                onClick={e => e.stopPropagation()} // No expandir el acordeón al hacer click
+                              >
+                                <GitHubIcon
+                                  color={
+                                    article.github_status === 'OK'
+                                      ? 'success'
+                                      : article.github_status === 'Broken'
+                                      ? 'error'
+                                      : 'disabled'
+                                  }
+                                />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {/* Fecha de publicación */}
+                          {article.published && (
+                            <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
+                              {new Date(article.published).toLocaleDateString()}
+                            </Typography>
+                          )}
+                          {/* Palabras clave */}
+                          {article.categories && article.categories.length > 0 && (
+                            <Box sx={{ display: 'flex', gap: 0.5, ml: 2, flexWrap: 'wrap' }}>
+                              {article.categories.slice(0, 3).map((cat) => (
+                                <Chip
+                                  key={cat}
+                                  label={cat}
+                                  size="small"
+                                  color="default"
+                                  sx={{ mr: 0.5 }}
+                                />
+                              ))}
+                            </Box>
+                          )}
+                          {/* PDF y página */}
+                          {article.pdf_url && (
+                            <Tooltip title="Ver PDF">
+                              <IconButton
+                                size="small"
+                                component="a"
+                                href={article.pdf_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                sx={{ ml: 1 }}
+                                onClick={e => e.stopPropagation()}
+                              >
+                                <PdfIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {article.url && (
+                            <Tooltip title="Ver en la página de origen">
+                              <IconButton
+                                size="small"
+                                component="a"
+                                href={article.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                sx={{ ml: 1 }}
+                                onClick={e => e.stopPropagation()}
+                              >
+                                <OpenInNewIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </AccordionSummary>
+                        <AccordionDetails>
+                          <Box sx={{ pl: 1 }}>
                             <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
                               {article.source} | {article.primary_category || ''} {article.version ? `| v${article.version}` : ''}
-                            </Typography>
-                            <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-                              <MuiLink href={article.url} target="_blank" underline="hover" color="inherit">
-                                {article.title}
-                              </MuiLink>
                             </Typography>
                             <Typography
                               variant="body2"
@@ -464,12 +542,11 @@ export const SearchResults: React.FC = () => {
                                 __html: highlightText(article.abstract, query)
                               }}
                             />
-                            <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mt: 1 }}>
                               <Typography variant="caption" color="text.secondary">
-                                {article.published && `Publicado: ${new Date(article.published).toLocaleDateString()}`}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {article.authors.map(a => a.name).join(', ')}
+                                {article.authors && Array.isArray(article.authors)
+                                  ? article.authors.map(a => a.name).join(', ')
+                                  : article.authors}
                               </Typography>
                               {article.doi && (
                                 <Chip
@@ -494,20 +571,18 @@ export const SearchResults: React.FC = () => {
                                 />
                               )}
                               {article.url && (
-                                <Tooltip title="Ver en el portal original">
-                                  <IconButton
-                                    size="small"
-                                    component="a"
-                                    href={article.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    sx={{ ml: 1 }}
-                                  >
-                                    <OpenInNewIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
+                                <Chip
+                                  label="Portal"
+                                  component="a"
+                                  href={article.url}
+                                  target="_blank"
+                                  clickable
+                                  size="small"
+                                  sx={{ ml: 1 }}
+                                />
                               )}
-                              {article.github_link ? (
+                              {/* GitHub chip solo si hay link */}
+                              {article.github_link && (
                                 <Tooltip title={`GitHub: ${article.github_link}`}>
                                   <Chip
                                     icon={<GitHubIcon />}
@@ -521,20 +596,11 @@ export const SearchResults: React.FC = () => {
                                     sx={{ ml: 1 }}
                                   />
                                 </Tooltip>
-                              ) : (
-                                <Chip
-                                  icon={<CancelIcon />}
-                                  label="Sin GitHub"
-                                  color="default"
-                                  size="small"
-                                  sx={{ ml: 1 }}
-                                />
                               )}
                             </Box>
                           </Box>
-                        </ListItem>
-                        <Divider />
-                      </React.Fragment>
+                        </AccordionDetails>
+                      </Accordion>
                     ))}
                   </List>
                 ) : (
