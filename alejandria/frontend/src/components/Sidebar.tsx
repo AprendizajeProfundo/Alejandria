@@ -37,18 +37,22 @@ export default function Sidebar({ selectedSources, setSelectedSources, open, set
 
   return (
     <Drawer
-      variant="persistent"
+      variant="permanent" // Cambia de "persistent" a "permanent"
       open={open}
       PaperProps={{
         sx: {
-          width: drawerWidth,
+          width: open ? drawerWidth : 56, // 56px para mini-variant cuando está colapsado
           bgcolor: 'background.paper',
           borderRight: '1px solid',
           borderColor: 'divider',
           transition: 'width 0.2s',
           zIndex: 1200,
-          overflowX: 'hidden'
+          overflowX: 'hidden',
+          boxSizing: 'border-box'
         }
+      }}
+      ModalProps={{
+        keepMounted: true, // Mejora el rendimiento en móviles
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', p: 1, justifyContent: open ? 'flex-end' : 'center' }}>
