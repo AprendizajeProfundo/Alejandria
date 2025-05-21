@@ -60,7 +60,9 @@ class SourceProcessor:
         query: str, 
         sources: List[str],
         websocket = None,
-        timeout: int = 30
+        timeout: int = 30,
+        max_results: int = 10,
+        sortby: str = "relevance"
     ) -> Dict[str, List[Dict[str, Any]]]:
         """
         Procesa la consulta en Arxiv y envía los resultados a través del websocket.
@@ -70,6 +72,9 @@ class SourceProcessor:
             sources: No utilizado, se mantiene por compatibilidad
             websocket: Objeto WebSocket para enviar actualizaciones
             timeout: Tiempo máximo para la búsqueda en segundos
+            max_results: Número máximo de resultados a retornar
+            sortby: Criterio de ordenamiento de los resultados
+            type_query: Tipo de consulta (todas, solo arxiv, solo tds)
             
         Returns:
             Diccionario con los resultados de Arxiv
@@ -115,9 +120,9 @@ class SourceProcessor:
             await send_update("started")
             logger.info("Procesando Arxiv...")
             
-            # Procesar la fuente con timeout
+            # Procesar la fuente con timeout y parámetros personalizados
             source_task = asyncio.create_task(
-                self._process_source('arxiv', query),
+                self._process_arxiv(query, max_results=max_results, sortby=sortby),
                 name="arxiv_task"
             )
             
@@ -203,23 +208,19 @@ class SourceProcessor:
             logger.error(f"Error procesando fuente {source}: {str(e)}")
             return []
 
-    async def _process_arxiv(self, query: str) -> List[Dict[str, Any]]:
+    async def _process_arxiv(self, query: str, max_results: int = 10, sortby: str = "relevance") -> List[Dict[str, Any]]:
         """
         Procesa la consulta usando ArXiv.
-        
-        Args:
-            query: Término de búsqueda
-            
-        Returns:
-            Lista de artículos de ArXiv
         """
         try:
             logger.info(f"Buscando en ArXiv: {query}")
-            
-            # Obtener resultados de ArXiv con manejo de errores
             try:
-                # Usar search_papers en lugar de search_articles
-                arxiv_results = self.arxiv_agent.search_papers(query=query, max_results=10)
+                # Solo pasa los argumentos que acepta tu ArxivAgent
+                arxiv_results = self.arxiv_agent.fetch_articles(
+                    query=query,
+                    max_results=max_results,
+                    sortby=sortby
+                )
                 if not isinstance(arxiv_results, list):
                     logger.warning("La respuesta de ArXiv no es una lista")
                     return []

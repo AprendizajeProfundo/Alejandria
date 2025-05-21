@@ -24,7 +24,13 @@ import {
   alpha,
   useTheme,
   Checkbox,
-  Link as MuiLink
+  Link as MuiLink,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Slider,
+  Box as MuiBox
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
@@ -87,6 +93,12 @@ export const SearchResults: React.FC = () => {
   const [status, setStatus] = useState<string>('');
   const [sources, setSources] = useState<string[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
+
+  // NUEVO: controles para tipo de búsqueda y número de resultados
+  const [maxResults, setMaxResults] = useState(10);
+  const [sortBy, setSortBy] = useState('relevance');
+  const [typeQuery, setTypeQuery] = useState('all');
+
   const { send, addMessageHandler, isConnected, error } = useWebSocket('ws://localhost:8100/ws/search');
 
   useEffect(() => {
@@ -155,6 +167,8 @@ export const SearchResults: React.FC = () => {
       type: 'search',
       query: query,
       sources: ['arxiv'],
+      max_results: maxResults,
+      sortby: sortBy,
       timestamp: new Date().toISOString()
     });
   };
@@ -174,7 +188,7 @@ export const SearchResults: React.FC = () => {
           Busca artículos académicos en Arxiv
         </Typography>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mt: 2 }}>
-          <Box sx={{ flexGrow: 1 }}>
+          <Box sx={{ flexGrow: 1, minWidth: 220 }}>
             <TextField
               fullWidth
               variant="outlined"
@@ -219,6 +233,39 @@ export const SearchResults: React.FC = () => {
             {isSearching ? 'Buscando...' : 'Buscar'}
           </Button>
         </Box>
+        {/* Filtros debajo del campo de búsqueda */}
+        <MuiBox sx={{ display: 'flex', gap: 3, alignItems: 'center', mt: 3, flexWrap: 'wrap' }}>
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <InputLabel id="sortby-label">Ordenar por</InputLabel>
+            <Select
+              labelId="sortby-label"
+              value={sortBy}
+              label="Ordenar por"
+              onChange={e => setSortBy(e.target.value)}
+              disabled={isSearching}
+            >
+              <MenuItem value="relevance">Relevancia</MenuItem>
+              <MenuItem value="lastUpdatedDate">Última actualización</MenuItem>
+              <MenuItem value="submittedDate">Fecha de envío</MenuItem>
+            </Select>
+          </FormControl>
+          <Box sx={{ minWidth: 220 }}>
+            <Typography id="slider-max-results" gutterBottom variant="caption" color="text.secondary">
+              N° resultados: {maxResults}
+            </Typography>
+            <Slider
+              value={maxResults}
+              onChange={(_, v) => setMaxResults(v as number)}
+              min={1}
+              max={100}
+              step={1}
+              valueLabelDisplay="auto"
+              disabled={isSearching}
+              aria-labelledby="slider-max-results"
+              sx={{ mt: -1 }}
+            />
+          </Box>
+        </MuiBox>
         {status && (
           <Box sx={{ mt: 2, mb: 1 }}>
             <Box sx={{ mb: 1 }}>
