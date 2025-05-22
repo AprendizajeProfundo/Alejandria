@@ -57,7 +57,7 @@ import { SearchResults } from '../components/SearchResults';
 import { Article } from '../components/SelectedArticlesPanel';
 
 const DRAWER_WIDTH_OPEN = 266;
-const DRAWER_WIDTH_COLLAPSED = 64;
+const DRAWER_WIDTH_COLLAPSED = 56; // Drawer estándar cerrado
 
 export default function SearchPage() {
   const theme = useTheme();
@@ -79,69 +79,33 @@ export default function SearchPage() {
 
   const drawerWidth = sidebarOpen ? DRAWER_WIDTH_OPEN : DRAWER_WIDTH_COLLAPSED;
 
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
-
-  const showSnackbar = (message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'info') => {
-    setSnackbar({ open: true, message, severity });
-  };
-
-  const handleSnackbarClose = () => {
-    setSnackbar(prev => ({ ...prev, open: false }));
-  };
-
-  // Cambia la función para trabajar con string[] en vez de objeto
-  const handleToggleSource = (sourceId: string) => {
-    setSelectedSources(prev =>
-      prev.includes(sourceId)
-        ? prev.filter(s => s !== sourceId)
-        : [...prev, sourceId]
-    );
-  };
-  
-  const handleSearch = () => {
-    if (!searchQuery.trim()) return;
-    
-    setIsSearching(true);
-    // Aquí iría la lógica para realizar la búsqueda
-    console.log('Buscando:', searchQuery, 'en fuentes:', 
-      Object.entries(selectedSources)
-        .filter(([_, selected]) => selected)
-        .map(([id]) => id)
-    );
-    
-    // Simular búsqueda
-    setTimeout(() => {
-      setIsSearching(false);
-      showSnackbar('Búsqueda completada', 'success');
-    }, 2000);
-  };
-
-  const availableSources = [
-    { id: 'arxiv', name: 'ArXiv', icon: <ScienceIcon /> },
-    { id: 'tds', name: 'Towards Data Science', icon: <SchoolIcon /> },
-  ];
-
   return (
     <Box sx={{ display: 'flex', height: '100vh', bgcolor: 'background.default' }}>
-      <Sidebar
-        selectedSources={selectedSources}
-        setSelectedSources={setSelectedSources}
-        open={sidebarOpen}
-        setOpen={setSidebarOpen}
-        drawerWidth={drawerWidth}
-        selectedArticles={selectedArticles}
-        setSelectedArticles={setSelectedArticles}
-      />
+      {/* Sidebar: position absolute, content always full width */}
+      <Box sx={{
+        position: 'relative',
+        width: `${drawerWidth}px`,
+        minWidth: `${drawerWidth}px`,
+        transition: 'width 0.2s cubic-bezier(.4,0,.2,1)'
+      }}>
+        <Sidebar
+          selectedSources={selectedSources}
+          setSelectedSources={setSelectedSources}
+          open={sidebarOpen}
+          setOpen={setSidebarOpen}
+          drawerWidth={drawerWidth}
+          selectedArticles={selectedArticles}
+          setSelectedArticles={setSelectedArticles}
+        />
+      </Box>
       <Box
         sx={{
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
           minWidth: 0,
-          ml: `${drawerWidth}px`,
-          transition: 'margin-left 0.2s'
+          // Elimina el margin-left, el contenido siempre inicia después del sidebar
+          // y el sidebar ocupa su propio espacio
         }}
       >
         <Topbar />
