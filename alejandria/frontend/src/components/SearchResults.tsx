@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Paper,
   Typography,
@@ -45,6 +45,7 @@ import { useWebSocket } from '../hooks/useWebSocket';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import CancelIcon from '@mui/icons-material/Cancel';
 import DescriptionIcon from '@mui/icons-material/Description';
+import SelectedArticlesPanel from './SelectedArticlesPanel';
 
 interface SearchResult {
   id: string;
@@ -93,6 +94,8 @@ export const SearchResults: React.FC = () => {
   const [status, setStatus] = useState<string>('');
   const [sources, setSources] = useState<string[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
+  const [selectedArticles, setSelectedArticles] = useState<SearchResult[]>([]);
+  const resultsContainerRef = useRef<HTMLDivElement>(null);
 
   // NUEVO: controles para tipo de búsqueda y número de resultados
   const [maxResults, setMaxResults] = useState(10);
@@ -191,10 +194,20 @@ export const SearchResults: React.FC = () => {
     });
   };
 
+  // Mantener el orden de selección
   const handleToggle = (id: string) => {
-    setSelected(prev =>
-      prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
-    );
+    setSelected(prev => {
+      if (prev.includes(id)) {
+        setSelectedArticles(arts => arts.filter(a => a.id !== id));
+        return prev.filter(s => s !== id);
+      } else {
+        const article = Object.values(sortedResults)
+          .flat()
+          .find(a => a.id === id);
+        if (article) setSelectedArticles(arts => [...arts, article]);
+        return [...prev, id];
+      }
+    });
   };
 
   // También puedes agregar logs en los handlers de los filtros para ver cambios en tiempo real:
@@ -237,7 +250,7 @@ export const SearchResults: React.FC = () => {
   }, [results, sources, sortBy, filterByDate]);
 
   return (
-    <Box sx={{ width: '100%' }}>
+    <Box sx={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
       {/* Controles de búsqueda */}
       <Paper elevation={2} sx={{ p: 3, mb: 3, maxWidth: '800px', mx: 'auto', width: '100%' }}>
         <Typography variant="h5" gutterBottom>Buscador de Artículos Académicos</Typography>
@@ -413,7 +426,15 @@ export const SearchResults: React.FC = () => {
       </Paper>
 
       {/* Resultados en acordeón por fuente */}
-      <Box sx={{ width: '100%' }}>
+      <Box
+        ref={resultsContainerRef}
+        sx={{
+          width: '100%',
+          flex: 1,
+          overflowY: 'auto',
+          pb: selectedArticles.length ? 28 : 0 // deja espacio si hay panel inferior
+        }}
+      >
         {sources.length === 0 && !isSearching && (
           <Paper
             elevation={0}
@@ -771,6 +792,30 @@ export const SearchResults: React.FC = () => {
             </Typography>
           </Box>
         )}
+      </Box>
+
+      {/* Panel inferior fijo para artículos seleccionados y extracción de ideas */}
+      <Box
+        sx={{
+          position: 'fixed',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 1201,
+          bgcolor: 'background.paper',
+          boxShadow: selectedArticles.length ? 8 : 0,
+          borderTop: selectedArticles.length ? 1 : 0,
+          borderColor: 'divider',
+          transition: 'box-shadow 0.2s, border-top 0.2s',
+          px: { xs: 1, sm: 4 },
+          py: selectedArticles.length ? 2 : 0,
+          maxWidth: '100vw'
+        }}
+      >
+        <SelectedArticlesPanel
+          selectedArticles={selectedArticles}
+          setSelectedArticles={setSelectedArticles}
+        />
       </Box>
     </Box>
   );

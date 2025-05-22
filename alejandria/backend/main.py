@@ -1,5 +1,6 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from typing import Dict, List, Any
 import json
 import uuid
@@ -13,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 # Importar componentes de la aplicación
 from src.services.search_service import SearchService
+from src.agent_summarizer import summarize_pdf
 
 app = FastAPI(title="Alejandria API")
 
@@ -190,6 +192,28 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "timestamp": "2025-05-19T22:47:45+00:00"}
+
+@app.post("/extract-ideas")
+async def extract_ideas(pdf_url: str = Form(...)):
+    """
+    Extrae ideas/conceptos de un PDF usando el agente de resumen.
+    """
+    import tempfile
+    import requests
+    import os
+
+    # Descargar el PDF temporalmente
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+            r = requests.get(pdf_url, timeout=30)
+            tmp.write(r.content)
+            tmp_path = tmp.name
+        # Llamar al agente de resumen
+        _, result = summarize_pdf(tmp_path)
+        os.unlink(tmp_path)
+        return JSONResponse(content=result)
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
 
 if __name__ == "__main__":
     import uvicorn

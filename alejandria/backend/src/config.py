@@ -25,3 +25,7 @@ WS_MAX_RETRIES = 3
 # Logging settings
 LOG_LEVEL = "INFO"
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+LLM_BASE_URL = "http://localhost:1234/v1"
+LLM_API_KEY = "lm-studio"
+LLM_MODEL = "deepseek-r1-distill-qwen-14b"
