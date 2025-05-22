@@ -79,7 +79,7 @@ def call_llm_for_summary(text, stream_placeholder=None, ws=None, ws_id=None):
             if decoded_line.startswith("data:"):
                 data_line = decoded_line[5:].strip()
                 if data_line == "[DONE]":
-                    print("[BACKEND LLM_STREAM] Fin del stream ([DONE])")
+                    #print("[BACKEND LLM_STREAM] Fin del stream ([DONE])")
                     if ws:
                         msg = {
                             "type": "llm_stream_done",
@@ -91,7 +91,8 @@ def call_llm_for_summary(text, stream_placeholder=None, ws=None, ws_id=None):
                             else:
                                 loop.run_until_complete(ws.send_json(msg))
                         except Exception as e:
-                            print(f"[BACKEND LLM_STREAM] Error enviando DONE por WS: {e}")
+                            #print(f"[BACKEND LLM_STREAM] Error enviando DONE por WS: {e}")
+                            pass
                     break
                 try:
                     data_json = json.loads(data_line)
@@ -100,7 +101,7 @@ def call_llm_for_summary(text, stream_placeholder=None, ws=None, ws_id=None):
                             if "delta" in choice and "content" in choice["delta"]:
                                 content = choice["delta"]["content"]
                                 full_output += content
-                                print(f"[BACKEND LLM_STREAM] Chunk: {content[:80]}")
+                                #print(f"[BACKEND LLM_STREAM] Chunk: {content[:80]}")
                                 if stream_placeholder:
                                     stream_placeholder.text(full_output)
                                 if ws:
@@ -115,11 +116,12 @@ def call_llm_for_summary(text, stream_placeholder=None, ws=None, ws_id=None):
                                             asyncio.run_coroutine_threadsafe(ws.send_json(msg), loop)
                                         else:
                                             loop.run_until_complete(ws.send_json(msg))
-                                        print(f"[BACKEND LLM_STREAM] Enviado chunk por WS (ws_id={ws_id})")
+                                        #print(f"[BACKEND LLM_STREAM] Enviado chunk por WS (ws_id={ws_id})")
                                     except Exception as e:
-                                        print(f"[BACKEND LLM_STREAM] Error enviando chunk por WS: {e}")
+                                        #print(f"[BACKEND LLM_STREAM] Error enviando chunk por WS: {e}")
+                                        pass
                 except Exception as e:
-                    print(f"[BACKEND LLM_STREAM] Error procesando chunk: {e}")
+                    #print(f"[BACKEND LLM_STREAM] Error procesando chunk: {e}")
                     pass
     match = re.search(r"```(?:json)?\s*(\{.*\})\s*```", full_output, re.DOTALL)
     if match:

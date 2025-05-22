@@ -80,38 +80,28 @@ const SelectedArticlesPanel = ({
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
         if (data.type === 'ws_id' && data.ws_id) {
           setWsId(data.ws_id);
-          console.log('[FRONTEND WS] ws_id recibido:', data.ws_id);
+          //console.log('[FRONTEND WS] ws_id recibido:', data.ws_id);
         }
         if (data.type === 'llm_stream' && data.ws_id && wsId && data.ws_id === wsId) {
-          // Buscar el artículo correspondiente por pdf_url (único por extracción)
-          let artId: string | null = null;
-          // Si el backend envía article_id, úsalo, si no, usa ws_id como fallback
-          if (data.article_id) {
-            artId = data.article_id as string;
+          let artId: string = '';
+          if (typeof data.article_id === 'string') {
+            artId = data.article_id;
+          } else if (selectedArticles.length === 1) {
+            artId = selectedArticles[0].id;
           } else {
-            // Buscar el artículo por ws_id (solo si hay uno seleccionado)
-            if (selectedArticles.length === 1) {
-              artId = selectedArticles[0].id;
-            } else {
-              // Si hay varios, intenta mapear por orden de envío (no ideal, pero fallback)
-              artId = 'default';
-            }
+            artId = 'default';
           }
-          // eslint-disable-next-line no-console
-          console.log('[FRONTEND WS] LLM_STREAM Chunk recibido:', data.content, 'para artId:', artId);
-          if (artId) {
-            setStreaming(prev => ({
-              ...prev,
-              [artId]: data.full_output
-            }));
-          }
+          //console.log('[FRONTEND WS] LLM_STREAM Chunk recibido:', data.content, 'para artId:', artId);
+          setStreaming(prev => ({
+            ...prev,
+            [String(artId)]: data.full_output
+          }));
         }
         if (data.type === 'llm_stream_done' && data.ws_id && wsId && data.ws_id === wsId) {
-          console.log('[FRONTEND WS] LLM_STREAM DONE recibido para ws_id:', data.ws_id);
+          //console.log('[FRONTEND WS] LLM_STREAM DONE recibido para ws_id:', data.ws_id);
         }
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error('[FRONTEND WS] Error procesando mensaje:', err, event.data);
+        //console.error('[FRONTEND WS] Error procesando mensaje:', err, event.data);
       }
     };
     const remove = addMessageHandler(handler);
