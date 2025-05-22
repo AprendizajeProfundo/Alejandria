@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Box, Typography, Button, CircularProgress, Accordion, AccordionSummary, AccordionDetails, Chip, IconButton, Drawer as MuiDrawer } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -108,6 +108,76 @@ const SelectedArticlesPanel = ({
     return () => remove();
   }, [addMessageHandler, wsId, selectedArticles]);
 
+  // Ref para el box de streaming (por artículo)
+  const streamingRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+
+  // Scroll automático al final cuando cambia el streaming
+  useEffect(() => {
+    Object.entries(streaming).forEach(([artId, _]) => {
+      const ref = streamingRefs.current[artId];
+      if (ref) {
+        ref.scrollTop = ref.scrollHeight;
+      }
+    });
+  }, [streaming]);
+
+  // Nuevo: guardar el JSON parseado del streaming final para cada artículo
+  const [parsedJson, setParsedJson] = useState<Record<string, any>>({});
+
+  // Cuando termina el streaming (llm_stream_done), intenta parsear el JSON del streaming y lo guarda
+  useEffect(() => {
+    if (!addMessageHandler) return;
+    const handler = (event: MessageEvent) => {
+      try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (data.type === 'llm_stream_done' && data.ws_id && wsId && data.ws_id === wsId) {
+          // Buscar el artId igual que en el streaming
+          let artId: string = '';
+          if (typeof data.article_id === 'string') {
+            artId = data.article_id;
+          } else if (selectedArticles.length === 1) {
+            artId = selectedArticles[0].id;
+          } else {
+            artId = 'default';
+          }
+          const streamText = streaming[artId];
+          if (streamText) {
+            // Intenta extraer el JSON del texto del streaming
+            let jsonStr = '';
+            let parsed: Record<string, any> | null = null;
+            try {
+              const match = streamText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+              if (match) {
+                jsonStr = match[1];
+              } else {
+                const start = streamText.indexOf('{');
+                const end = streamText.lastIndexOf('}');
+                if (start !== -1 && end !== -1 && end > start) {
+                  jsonStr = streamText.slice(start, end + 1);
+                }
+              }
+              if (jsonStr) {
+                parsed = JSON.parse(jsonStr);
+              }
+            } catch (e) {
+              parsed = null;
+            }
+            if (parsed) {
+              setParsedJson(prev => ({
+                ...prev,
+                [artId]: parsed
+              }));
+            }
+          }
+        }
+      } catch (err) {
+        // Silenciar errores de parseo
+      }
+    };
+    const remove = addMessageHandler(handler);
+    return () => remove();
+  }, [addMessageHandler, wsId, streaming, selectedArticles]);
+
   // Eliminar artículo de la selección (sin colapsar el panel)
   const handleRemoveArticle = (id: string) => {
     setSelectedArticles(prev => prev.filter(a => a.id !== id));
@@ -115,6 +185,7 @@ const SelectedArticlesPanel = ({
 
   // Si el panel está minimizado y está en modo sidebar, muestra un botón flotante para restaurar
   if (!open && sidebarMode) {
+    // El panel está colapsado, pero NO reseteamos el estado de streaming ni resultados
     return null;
   }
 
@@ -192,19 +263,22 @@ const SelectedArticlesPanel = ({
                     Streaming del modelo:
                   </Typography>
                   <Box
+                    ref={el => { streamingRefs.current[art.id] = el as HTMLDivElement | null; }}
                     sx={{
                       bgcolor: '#181c20',
                       color: '#90caf9',
                       borderRadius: 1,
                       fontSize: 13,
                       p: 2,
-                      overflowX: 'hidden', // <-- Cambia de 'auto' a 'hidden'
+                      overflowX: 'hidden',
+                      overflowY: 'auto',
                       fontFamily: 'monospace',
                       mb: 1,
                       maxHeight: 200,
-                      width: '100%', // <-- Asegura que ocupe el ancho del panel
-                      wordBreak: 'break-word', // <-- Evita scroll horizontal por palabras largas
-                      whiteSpace: 'pre-wrap',  // <-- Mantiene saltos de línea y ajusta texto
+                      width: '100%',
+                      wordBreak: 'break-word',
+                      whiteSpace: 'pre-wrap',
+                      transition: 'background 0.2s',
                     }}
                     component="pre"
                   >
@@ -212,9 +286,16 @@ const SelectedArticlesPanel = ({
                   </Box>
                 </Box>
               )}
-              {/* Resultado final JSON bonito */}
+              {/* Resultado final JSON bonito (del backend o del streaming parseado) */}
               {results[art.id]?.error ? (
                 <Typography color="error">{results[art.id].error}</Typography>
+              ) : parsedJson[art.id] ? (
+                <>
+                  <Typography variant="caption" color="primary" sx={{ fontWeight: 600 }}>
+                    Resumen estructurado:
+                  </Typography>
+                  <PrettyJSON data={parsedJson[art.id]} />
+                </>
               ) : (
                 results[art.id] && (
                   <>
@@ -321,19 +402,22 @@ const SelectedArticlesPanel = ({
                   Streaming del modelo:
                 </Typography>
                 <Box
+                  ref={el => { streamingRefs.current[art.id] = el as HTMLDivElement | null; }}
                   sx={{
                     bgcolor: '#181c20',
                     color: '#90caf9',
                     borderRadius: 1,
                     fontSize: 13,
                     p: 2,
-                    overflowX: 'hidden', // <-- Cambia de 'auto' a 'hidden'
+                    overflowX: 'hidden',
+                    overflowY: 'auto',
                     fontFamily: 'monospace',
                     mb: 1,
                     maxHeight: 200,
-                    width: '100%', // <-- Asegura que ocupe el ancho del panel
-                    wordBreak: 'break-word', // <-- Evita scroll horizontal por palabras largas
-                    whiteSpace: 'pre-wrap',  // <-- Mantiene saltos de línea y ajusta texto
+                    width: '100%',
+                    wordBreak: 'break-word',
+                    whiteSpace: 'pre-wrap',
+                    transition: 'background 0.2s',
                   }}
                   component="pre"
                 >
@@ -341,9 +425,16 @@ const SelectedArticlesPanel = ({
                 </Box>
               </Box>
             )}
-            {/* Resultado final JSON bonito */}
+            {/* Resultado final JSON bonito (del backend o del streaming parseado) */}
             {results[art.id]?.error ? (
               <Typography color="error">{results[art.id].error}</Typography>
+            ) : parsedJson[art.id] ? (
+              <>
+                <Typography variant="caption" color="primary" sx={{ fontWeight: 600 }}>
+                  Resumen estructurado:
+                </Typography>
+                <PrettyJSON data={parsedJson[art.id]} />
+              </>
             ) : (
               results[art.id] && (
                 <>
