@@ -198,10 +198,13 @@ const SelectedArticlesPanel = ({
                       borderRadius: 1,
                       fontSize: 13,
                       p: 2,
-                      overflowX: 'auto',
+                      overflowX: 'hidden', // <-- Cambia de 'auto' a 'hidden'
                       fontFamily: 'monospace',
                       mb: 1,
                       maxHeight: 200,
+                      width: '100%', // <-- Asegura que ocupe el ancho del panel
+                      wordBreak: 'break-word', // <-- Evita scroll horizontal por palabras largas
+                      whiteSpace: 'pre-wrap',  // <-- Mantiene saltos de línea y ajusta texto
                     }}
                     component="pre"
                   >
@@ -324,10 +327,13 @@ const SelectedArticlesPanel = ({
                     borderRadius: 1,
                     fontSize: 13,
                     p: 2,
-                    overflowX: 'auto',
+                    overflowX: 'hidden', // <-- Cambia de 'auto' a 'hidden'
                     fontFamily: 'monospace',
                     mb: 1,
                     maxHeight: 200,
+                    width: '100%', // <-- Asegura que ocupe el ancho del panel
+                    wordBreak: 'break-word', // <-- Evita scroll horizontal por palabras largas
+                    whiteSpace: 'pre-wrap',  // <-- Mantiene saltos de línea y ajusta texto
                   }}
                   component="pre"
                 >
