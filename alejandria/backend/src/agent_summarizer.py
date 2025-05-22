@@ -11,14 +11,18 @@ def extract_full_text_from_pdf(pdf_path):
     Extrae todo el texto del PDF.
     """
     text = ""
-    with open(pdf_path, "rb") as f:
-        reader = PyPDF2.PdfReader(f)
-        for page in reader.pages:
-            page_text = page.extract_text() or ""
-            text += page_text + "\n"
-    return text  # <-- Devuelve el texto completo, no solo los primeros 200 caracteres
+    try:
+        with open(pdf_path, "rb") as f:
+            reader = PyPDF2.PdfReader(f)
+            for page in reader.pages:
+                page_text = page.extract_text() or ""
+                text += page_text + "\n"
+    except Exception as e:
+        # Manejo de error para archivos PDF corruptos o ilegibles
+        text += f"\n[ERROR] No se pudo extraer el texto del PDF: {e}\n"
+    return text[:200]  # <-- Devuelve el texto completo, no solo los primeros 200 caracteres
 
-def call_llm_for_summary(text, stream_placeholder=None):
+def call_llm_for_summary(text, stream_placeholder=None, ws=None, ws_id=None):
     """
     Llama al LLM para extraer un resumen pedagógico del artículo:
       - ideas principales
@@ -27,8 +31,8 @@ def call_llm_for_summary(text, stream_placeholder=None):
       - algoritmos
       etc.
     Retorna un dict con las claves: 'main_ideas', 'methods', 'comparisons', 'algorithms', 'other'.
-    
-    Se utiliza el parámetro stream_placeholder para actualizar el progreso en streaming.
+
+    Si ws (WebSocket) es provisto, envía el progreso en tiempo real.
     """
     system_prompt = (
         "Actúa como un experto en análisis pedagógico de papers. "
@@ -59,7 +63,10 @@ def call_llm_for_summary(text, stream_placeholder=None):
     if stream_placeholder:
         stream_placeholder.text("Procesando Prompt de Extracción. Espere por favor...")
 
-    response = requests.post(LLM_BASE_URL + "/chat/completions", json=payload, headers=headers, stream=True)
+    try:
+        response = requests.post(LLM_BASE_URL + "/chat/completions", json=payload, headers=headers, stream=True)
+    except Exception as e:
+        raise Exception(f"Error conectando al LLM: {e}")
     if response.status_code != 200:
         raise Exception(f"Error en la llamada al LLM: {response.status_code} {response.text}")
 
@@ -67,9 +74,27 @@ def call_llm_for_summary(text, stream_placeholder=None):
     for line in response.iter_lines():
         if line:
             decoded_line = line.decode("utf-8").strip()
+            # LOG: Mostrar cada chunk recibido del LLM
+            #print(f"[LLM STREAM] Chunk recibido: {decoded_line[:120]}{'...' if len(decoded_line) > 120 else ''}")
             if decoded_line.startswith("data:"):
                 data_line = decoded_line[5:].strip()
                 if data_line == "[DONE]":
+                    print("[LLM STREAM] Fin del stream ([DONE])")
+                    # Si hay un WebSocket, notificar que terminó el stream
+                    if ws:
+                        import asyncio
+                        msg = {
+                            "type": "llm_stream_done",
+                            "ws_id": ws_id,
+                        }
+                        try:
+                            loop = asyncio.get_event_loop()
+                            if loop.is_running():
+                                asyncio.ensure_future(ws.send_json(msg))
+                            else:
+                                loop.run_until_complete(ws.send_json(msg))
+                        except Exception:
+                            pass
                     break
                 try:
                     data_json = json.loads(data_line)
@@ -80,7 +105,25 @@ def call_llm_for_summary(text, stream_placeholder=None):
                                 full_output += content
                                 if stream_placeholder:
                                     stream_placeholder.text(full_output)
-                except:
+                                # Enviar por WebSocket si está disponible
+                                if ws:
+                                    import asyncio
+                                    msg = {
+                                        "type": "llm_stream",
+                                        "ws_id": ws_id,
+                                        "content": content,
+                                        "full_output": full_output
+                                    }
+                                    try:
+                                        loop = asyncio.get_event_loop()
+                                        if loop.is_running():
+                                            asyncio.ensure_future(ws.send_json(msg))
+                                        else:
+                                            loop.run_until_complete(ws.send_json(msg))
+                                    except Exception:
+                                        pass
+                except Exception as e:
+                    print(f"[LLM STREAM] Error procesando chunk: {e}")
                     pass
     match = re.search(r"```(?:json)?\s*(\{.*\})\s*```", full_output, re.DOTALL)
     if match:
@@ -105,12 +148,22 @@ def call_llm_for_summary(text, stream_placeholder=None):
         }
     return full_output, result
 
-def summarize_pdf(pdf_path, stream_placeholder=None):
+def summarize_pdf(pdf_path, stream_placeholder=None, ws=None, ws_id=None):
     """
     Extrae el texto completo del PDF y llama al LLM para obtener el resumen pedagógico.
+    Si ws está presente, hace streaming en tiempo real.
     """
     text = extract_full_text_from_pdf(pdf_path)
-    summary = call_llm_for_summary(text, stream_placeholder=stream_placeholder)
+    if not text or "[ERROR]" in text:
+        return "", {
+            "main_ideas": [],
+            "methods": [],
+            "comparisons": [],
+            "algorithms": [],
+            "other": [],
+            "error": "No se pudo extraer texto del PDF."
+        }
+    summary = call_llm_for_summary(text, stream_placeholder=stream_placeholder, ws=ws, ws_id=ws_id)
     return summary
 
 # Prueba (opcional)

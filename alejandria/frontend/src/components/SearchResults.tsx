@@ -86,7 +86,15 @@ function highlightText(text: string, query: string) {
   return text.replace(pattern, match => `<mark style="background-color: #ffe082; color: #222;">${match}</mark>`);
 }
 
-export const SearchResults: React.FC = () => {
+interface SearchResultsProps {
+  selectedArticles: any[];
+  setSelectedArticles: React.Dispatch<React.SetStateAction<any[]>>;
+}
+
+export const SearchResults: React.FC<SearchResultsProps> = ({
+  selectedArticles,
+  setSelectedArticles
+}) => {
   const theme = useTheme();
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -94,7 +102,6 @@ export const SearchResults: React.FC = () => {
   const [status, setStatus] = useState<string>('');
   const [sources, setSources] = useState<string[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
-  const [selectedArticles, setSelectedArticles] = useState<SearchResult[]>([]);
   const resultsContainerRef = useRef<HTMLDivElement>(null);
 
   // NUEVO: controles para tipo de búsqueda y número de resultados
@@ -792,30 +799,6 @@ export const SearchResults: React.FC = () => {
             </Typography>
           </Box>
         )}
-      </Box>
-
-      {/* Panel inferior fijo para artículos seleccionados y extracción de ideas */}
-      <Box
-        sx={{
-          position: 'fixed',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 1201,
-          bgcolor: 'background.paper',
-          boxShadow: selectedArticles.length ? 8 : 0,
-          borderTop: selectedArticles.length ? 1 : 0,
-          borderColor: 'divider',
-          transition: 'box-shadow 0.2s, border-top 0.2s',
-          px: { xs: 1, sm: 4 },
-          py: selectedArticles.length ? 2 : 0,
-          maxWidth: '100vw'
-        }}
-      >
-        <SelectedArticlesPanel
-          selectedArticles={selectedArticles}
-          setSelectedArticles={setSelectedArticles}
-        />
       </Box>
     </Box>
   );
