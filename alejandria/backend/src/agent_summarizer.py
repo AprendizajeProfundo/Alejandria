@@ -4,6 +4,7 @@ import re
 import requests
 import json
 import PyPDF2
+import asyncio
 from .config import LLM_BASE_URL, LLM_API_KEY, LLM_MODEL
 
 def extract_full_text_from_pdf(pdf_path):
@@ -24,14 +25,7 @@ def extract_full_text_from_pdf(pdf_path):
 
 def call_llm_for_summary(text, stream_placeholder=None, ws=None, ws_id=None):
     """
-    Llama al LLM para extraer un resumen pedagógico del artículo:
-      - ideas principales
-      - metodologías
-      - comparaciones
-      - algoritmos
-      etc.
-    Retorna un dict con las claves: 'main_ideas', 'methods', 'comparisons', 'algorithms', 'other'.
-
+    Llama al LLM para extraer un resumen pedagógico del artículo.
     Si ws (WebSocket) es provisto, envía el progreso en tiempo real.
     """
     system_prompt = (
@@ -63,38 +57,41 @@ def call_llm_for_summary(text, stream_placeholder=None, ws=None, ws_id=None):
     if stream_placeholder:
         stream_placeholder.text("Procesando Prompt de Extracción. Espere por favor...")
 
-    try:
-        response = requests.post(LLM_BASE_URL + "/chat/completions", json=payload, headers=headers, stream=True)
-    except Exception as e:
-        raise Exception(f"Error conectando al LLM: {e}")
+    response = requests.post(LLM_BASE_URL + "/chat/completions", json=payload, headers=headers, stream=True)
     if response.status_code != 200:
         raise Exception(f"Error en la llamada al LLM: {response.status_code} {response.text}")
 
     full_output = ""
+    # Detectar si estamos en un thread sin event loop y crear uno temporal para enviar por WS
+    loop = None
+    if ws:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # No hay event loop en este thread, crear uno temporal
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
     for line in response.iter_lines():
         if line:
             decoded_line = line.decode("utf-8").strip()
-            # LOG: Mostrar cada chunk recibido del LLM
-            #print(f"[LLM STREAM] Chunk recibido: {decoded_line[:120]}{'...' if len(decoded_line) > 120 else ''}")
+            #print(f"[BACKEND LLM_STREAM] Recibido: {decoded_line[:120]}{'...' if len(decoded_line) > 120 else ''}")
             if decoded_line.startswith("data:"):
                 data_line = decoded_line[5:].strip()
                 if data_line == "[DONE]":
-                    print("[LLM STREAM] Fin del stream ([DONE])")
-                    # Si hay un WebSocket, notificar que terminó el stream
+                    print("[BACKEND LLM_STREAM] Fin del stream ([DONE])")
                     if ws:
-                        import asyncio
                         msg = {
                             "type": "llm_stream_done",
                             "ws_id": ws_id,
                         }
                         try:
-                            loop = asyncio.get_event_loop()
-                            if loop.is_running():
-                                asyncio.ensure_future(ws.send_json(msg))
+                            if loop and loop.is_running():
+                                asyncio.run_coroutine_threadsafe(ws.send_json(msg), loop)
                             else:
                                 loop.run_until_complete(ws.send_json(msg))
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            print(f"[BACKEND LLM_STREAM] Error enviando DONE por WS: {e}")
                     break
                 try:
                     data_json = json.loads(data_line)
@@ -103,11 +100,10 @@ def call_llm_for_summary(text, stream_placeholder=None, ws=None, ws_id=None):
                             if "delta" in choice and "content" in choice["delta"]:
                                 content = choice["delta"]["content"]
                                 full_output += content
+                                print(f"[BACKEND LLM_STREAM] Chunk: {content[:80]}")
                                 if stream_placeholder:
                                     stream_placeholder.text(full_output)
-                                # Enviar por WebSocket si está disponible
                                 if ws:
-                                    import asyncio
                                     msg = {
                                         "type": "llm_stream",
                                         "ws_id": ws_id,
@@ -115,15 +111,15 @@ def call_llm_for_summary(text, stream_placeholder=None, ws=None, ws_id=None):
                                         "full_output": full_output
                                     }
                                     try:
-                                        loop = asyncio.get_event_loop()
-                                        if loop.is_running():
-                                            asyncio.ensure_future(ws.send_json(msg))
+                                        if loop and loop.is_running():
+                                            asyncio.run_coroutine_threadsafe(ws.send_json(msg), loop)
                                         else:
                                             loop.run_until_complete(ws.send_json(msg))
-                                    except Exception:
-                                        pass
+                                        print(f"[BACKEND LLM_STREAM] Enviado chunk por WS (ws_id={ws_id})")
+                                    except Exception as e:
+                                        print(f"[BACKEND LLM_STREAM] Error enviando chunk por WS: {e}")
                 except Exception as e:
-                    print(f"[LLM STREAM] Error procesando chunk: {e}")
+                    print(f"[BACKEND LLM_STREAM] Error procesando chunk: {e}")
                     pass
     match = re.search(r"```(?:json)?\s*(\{.*\})\s*```", full_output, re.DOTALL)
     if match:
