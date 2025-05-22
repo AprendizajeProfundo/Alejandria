@@ -27,10 +27,10 @@ export const useWebSocket = (url: string = 'ws://localhost:8100/ws/search', isTe
   const reconnectAttempts = useRef(0);
 
   const handleMessage = (event: MessageEvent) => {
-    console.log('Raw WebSocket message:', event.data);
+    //console.log('Raw WebSocket message:', event.data);
     try {
       const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-      console.log('Parsed WebSocket message:', data);
+      //console.log('Parsed WebSocket message:', data);
       
       // Notificar a todos los manejadores registrados
       messageHandlers.current.forEach(handler => {
