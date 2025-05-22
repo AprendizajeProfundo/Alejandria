@@ -3,7 +3,7 @@ import os
 import re
 import json
 import requests
-from config import LLM_BASE_URL, LLM_API_KEY, LLM_MODEL
+from config import LLM_BASE_URL, LLM_API_KEY, LLM_MODEL, LLM_BASE_URL_OPENAI, LLM_API_KEY_OPENAI, LLM_MODEL_OPENAI 
 
 def call_llm_for_sections(text, stream_placeholder=None):
     """
@@ -44,6 +44,11 @@ def call_llm_for_sections(text, stream_placeholder=None):
         "incluyendo secciones de introducción, tabla de contenido, descripción detallada de cada método, comparaciones, conclusiones y un ejemplo de código, "
         "El JSON debe incluir celdas de markdown y celdas de código. Para las celdas de código, "
         "asegúrate de incluir la propiedad 'execution_count' con valor null y 'outputs' como una lista vacía. "
+        "Si ves conceptos que se pueden generar en código pero real desde tu base de conocimiento, hazlo en las celdas de códigos correspondientes. PON EJEMPLOS REALES QUE APUNTEN AL TEMA. SE AMPLIO EN EL CÓDIGO."
+        "También genera visualizaciones gráficas, para ejemplicar el tema o los reusltados. del código, con matplotlib o seaborn."
+        "MUY IMPORTATNTE QUE HAGAS GRAFICOS PARA QUE ACOMPAÑEN EL CÓDIGO."
+        "IMPORTANTE: Para las celdas de código que generen gráficos con matplotlib o seaborn, incluye la línea '%matplotlib inline' al principio de la celda (solo la primera vez que se use). "
+        "NO uses plt.show(). Simplemente termina la celda con la instrucción de la figura (por ejemplo, plt.plot(...) o plt.figure(...)), para que el gráfico se muestre automáticamente en Jupyter."
         "Sigue EXACTAMENTE la siguiente estructura cuando se pueda seguir markdown y luego código o sólo markdown o solo código (sin nada adicional):\n\n"
         "{\n"
         "  \"cells\": [\n"
@@ -63,23 +68,23 @@ def call_llm_for_sections(text, stream_placeholder=None):
     user_prompt = text
 
     payload = {
-        "model": LLM_MODEL,
+        "model": LLM_MODEL_OPENAI,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ],
         "max_tokens": None,
         "n": 1,
-        "temperature": 0,
+        "temperature": 0.2,
         "stream": True
     }
     headers = {
-        "Authorization": f"Bearer {LLM_API_KEY}",
+        "Authorization": f"Bearer {LLM_API_KEY_OPENAI}",
         "Content-Type": "application/json"
     }
     if stream_placeholder:
         stream_placeholder.text("Procesando prompt, espere por favor...")
-    response = requests.post(LLM_BASE_URL + "/chat/completions", json=payload, headers=headers, stream=True)
+    response = requests.post(LLM_BASE_URL_OPENAI + "/v1/chat/completions", json=payload, headers=headers, stream=True)
     if response.status_code != 200:
         raise Exception(f"Error en la llamada al LLM: {response.status_code} {response.text}")
 
