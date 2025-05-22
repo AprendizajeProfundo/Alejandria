@@ -183,72 +183,77 @@ const SelectedArticlesPanel = ({
     setSelectedArticles(prev => prev.filter(a => a.id !== id));
   };
 
-  // Si el panel está minimizado y está en modo sidebar, muestra un botón flotante para restaurar
-  if (!open && sidebarMode) {
-    // El panel está colapsado, pero NO reseteamos el estado de streaming ni resultados
+  // El acordeón de cada artículo seleccionado y su streaming deben estar siempre visibles después de que aparece,
+  // incluso si el panel está colapsado o abierto.
+  // Si no hay artículos seleccionados, no se muestra nada.
+  if (selectedArticles.length === 0) {
     return null;
   }
 
   // Panel compacto para el sidebar
   if (sidebarMode) {
-    return open ? (
+    return (
       <Box sx={{ p: 1, bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'center' }}>
-          <Typography
-            variant="subtitle1"
-            sx={{ flex: 1, fontWeight: 600, textAlign: 'center' }}
-          >
-            Seleccionados ({selectedArticles.length})
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
-          {selectedArticles.map((art, idx) => (
-            <Chip
-              key={art.id}
-              label={`${idx + 1}. ${art.title}`}
-              onDelete={() => handleRemoveArticle(art.id)}
-              sx={{ maxWidth: 260, mb: 0.5 }}
-            />
-          ))}
-        </Box>
-        <Button
-          variant="contained"
-          onClick={async () => {
-            setLoading(true);
-            setStopRequested(false);
-            setOpen(true);
-            setStreaming({});
-            setResults({});
-            setShowExtraction(true);
-            for (const art of selectedArticles) {
-              if (stopRequested) break;
-              try {
-                const formData = new FormData();
-                formData.append('pdf_url', art.pdf_url || '');
-                if (wsId) formData.append('ws_id', wsId);
-                await fetch('http://localhost:8100/extract-ideas', {
-                  method: 'POST',
-                  body: formData,
-                });
-                // El resultado final se mostrará cuando llegue por WebSocket (streaming)
-              } catch (e) {
-                setResults(prev => ({
-                  ...prev,
-                  [art.id]: { error: 'Error de red al extraer ideas.' }
-                }));
-              }
-            }
-            setLoading(false);
-          }}
-          disabled={loading || !selectedArticles.length || !wsId}
-          startIcon={loading ? <CircularProgress size={18} /> : null}
-          fullWidth
-          sx={{ mb: 1 }}
-        >
-          Extraer Ideas y Conceptos
-        </Button>
-        {/* Mostrar logs y resultados SOLO si se hizo extracción */}
-        {showExtraction && selectedArticles.map((art) => (
+        {/* Botón y lista de seleccionados solo si el panel está abierto */}
+        {open && (
+          <>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'center' }}>
+              <Typography
+                variant="subtitle1"
+                sx={{ flex: 1, fontWeight: 600, textAlign: 'center' }}
+              >
+                Seleccionados ({selectedArticles.length})
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
+              {selectedArticles.map((art, idx) => (
+                <Chip
+                  key={art.id}
+                  label={`${idx + 1}. ${art.title}`}
+                  onDelete={() => handleRemoveArticle(art.id)}
+                  sx={{ maxWidth: 260, mb: 0.5 }}
+                />
+              ))}
+            </Box>
+            <Button
+              variant="contained"
+              onClick={async () => {
+                setLoading(true);
+                setStopRequested(false);
+                setOpen(true);
+                setStreaming({});
+                setResults({});
+                setShowExtraction(true);
+                for (const art of selectedArticles) {
+                  if (stopRequested) break;
+                  try {
+                    const formData = new FormData();
+                    formData.append('pdf_url', art.pdf_url || '');
+                    if (wsId) formData.append('ws_id', wsId);
+                    await fetch('http://localhost:8100/extract-ideas', {
+                      method: 'POST',
+                      body: formData,
+                    });
+                  } catch (e) {
+                    setResults(prev => ({
+                      ...prev,
+                      [art.id]: { error: 'Error de red al extraer ideas.' }
+                    }));
+                  }
+                }
+                setLoading(false);
+              }}
+              disabled={loading || !selectedArticles.length || !wsId}
+              startIcon={loading ? <CircularProgress size={18} /> : null}
+              fullWidth
+              sx={{ mb: 1 }}
+            >
+              Extraer Ideas y Conceptos
+            </Button>
+          </>
+        )}
+        {/* Mostrar logs y resultados SIEMPRE si se hizo extracción o hay artículos seleccionados */}
+        {selectedArticles.map((art) => (
           <Accordion key={art.id} defaultExpanded>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
               <Typography variant="subtitle1">
@@ -256,8 +261,8 @@ const SelectedArticlesPanel = ({
               </Typography>
             </AccordionSummary>
             <AccordionDetails>
-              {/* Streaming completo */}
-              {streaming[art.id] && (
+              {/* Streaming completo: SIEMPRE visible si hay streaming o si showExtraction está activo */}
+              {(streaming[art.id] || showExtraction) && (
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="caption" color="primary" sx={{ fontWeight: 600 }}>
                     Streaming del modelo:
@@ -279,10 +284,11 @@ const SelectedArticlesPanel = ({
                       wordBreak: 'break-word',
                       whiteSpace: 'pre-wrap',
                       transition: 'background 0.2s',
+                      minHeight: 40, // para que la caja no desaparezca nunca
                     }}
                     component="pre"
                   >
-                    {streaming[art.id]}
+                    {streaming[art.id] || "Esperando respuesta del modelo..."}
                   </Box>
                 </Box>
               )}
@@ -310,7 +316,7 @@ const SelectedArticlesPanel = ({
           </Accordion>
         ))}
       </Box>
-    ) : null;
+    );
   }
 
   // Drawer lateral izquierdo para artículos seleccionados
@@ -333,7 +339,7 @@ const SelectedArticlesPanel = ({
       PaperProps={{ sx: { p: 2 } }}
     >
       <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
-        {selectedArticles.map((art, idx) => (
+        {open && selectedArticles.map((art, idx) => (
           <Chip
             key={art.id}
             label={`${idx + 1}. ${art.title}`}
@@ -343,51 +349,54 @@ const SelectedArticlesPanel = ({
         ))}
       </Box>
       <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2 }}>
-        <Button
-          variant="contained"
-          onClick={async () => {
-            setLoading(true);
-            setStopRequested(false);
-            setOpen(true);
-            setStreaming({});
-            setResults({});
-            setShowExtraction(true);
-            for (const art of selectedArticles) {
-              if (stopRequested) break;
-              try {
-                const formData = new FormData();
-                formData.append('pdf_url', art.pdf_url || '');
-                if (wsId) formData.append('ws_id', wsId);
-                await fetch('http://localhost:8100/extract-ideas', {
-                  method: 'POST',
-                  body: formData,
-                });
-                // El resultado final se mostrará cuando llegue por WebSocket (streaming)
-              } catch (e) {
-                setResults(prev => ({
-                  ...prev,
-                  [art.id]: { error: 'Error de red al extraer ideas.' }
-                }));
-              }
-            }
-            setLoading(false);
-          }}
-          disabled={loading || !selectedArticles.length || !wsId}
-          startIcon={loading ? <CircularProgress size={18} /> : null}
-        >
-          Extraer Ideas y Conceptos
-        </Button>
-        <Button
-          variant="outlined"
-          color="error"
-          onClick={() => setStopRequested(true)}
-          disabled={!loading}
-        >
-          Parar extracción
-        </Button>
+        {open && (
+          <>
+            <Button
+              variant="contained"
+              onClick={async () => {
+                setLoading(true);
+                setStopRequested(false);
+                setOpen(true);
+                setStreaming({});
+                setResults({});
+                setShowExtraction(true);
+                for (const art of selectedArticles) {
+                  if (stopRequested) break;
+                  try {
+                    const formData = new FormData();
+                    formData.append('pdf_url', art.pdf_url || '');
+                    if (wsId) formData.append('ws_id', wsId);
+                    await fetch('http://localhost:8100/extract-ideas', {
+                      method: 'POST',
+                      body: formData,
+                    });
+                  } catch (e) {
+                    setResults(prev => ({
+                      ...prev,
+                      [art.id]: { error: 'Error de red al extraer ideas.' }
+                    }));
+                  }
+                }
+                setLoading(false);
+              }}
+              disabled={loading || !selectedArticles.length || !wsId}
+              startIcon={loading ? <CircularProgress size={18} /> : null}
+            >
+              Extraer Ideas y Conceptos
+            </Button>
+            <Button
+              variant="outlined"
+              color="error"
+              onClick={() => setStopRequested(true)}
+              disabled={!loading}
+            >
+              Parar extracción
+            </Button>
+          </>
+        )}
       </Box>
-      {/* Mostrar logs y resultados SOLO si se hizo extracción */}
-      {showExtraction && selectedArticles.map((art) => (
+      {/* Mostrar logs y resultados SIEMPRE si se hizo extracción o hay artículos seleccionados */}
+      {selectedArticles.map((art) => (
         <Accordion key={art.id} defaultExpanded>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="subtitle1">
@@ -395,8 +404,8 @@ const SelectedArticlesPanel = ({
             </Typography>
           </AccordionSummary>
           <AccordionDetails>
-            {/* Streaming completo */}
-            {streaming[art.id] && (
+            {/* Streaming completo: SIEMPRE visible si hay streaming o si showExtraction está activo */}
+            {(streaming[art.id] || showExtraction) && (
               <Box sx={{ mb: 2 }}>
                 <Typography variant="caption" color="primary" sx={{ fontWeight: 600 }}>
                   Streaming del modelo:
@@ -418,10 +427,11 @@ const SelectedArticlesPanel = ({
                     wordBreak: 'break-word',
                     whiteSpace: 'pre-wrap',
                     transition: 'background 0.2s',
+                    minHeight: 40, // para que la caja no desaparezca nunca
                   }}
                   component="pre"
                 >
-                  {streaming[art.id]}
+                  {streaming[art.id] || "Esperando respuesta del modelo..."}
                 </Box>
               </Box>
             )}
