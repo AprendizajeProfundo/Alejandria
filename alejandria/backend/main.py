@@ -194,26 +194,50 @@ async def health_check():
     return {"status": "healthy", "timestamp": "2025-05-19T22:47:45+00:00"}
 
 @app.post("/extract-ideas")
-async def extract_ideas(pdf_url: str = Form(...)):
+async def extract_ideas(pdf_url: str = Form(...), ws_id: str = Form(None)):
     """
     Extrae ideas/conceptos de un PDF usando el agente de resumen.
+    Si ws_id es proporcionado, hace streaming por WebSocket.
     """
     import tempfile
     import requests
     import os
 
-    # Descargar el PDF temporalmente
+    # Buscar WebSocket activo si ws_id está presente
+    websocket = None
+    if ws_id:
+        # Aquí deberías tener un registro global de websockets activos por ws_id
+        # Por ejemplo: websockets_dict = {"ws_id": websocket}
+        # websocket = websockets_dict.get(ws_id)
+        pass  # Implementa tu lógica de gestión de websockets aquí
+
     try:
+        print(f"[extract-ideas] Intentando descargar PDF desde: {pdf_url}")
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
             r = requests.get(pdf_url, timeout=30)
+            print(f"[extract-ideas] Código de estado de la descarga: {r.status_code}")
+            if r.status_code != 200:
+                print(f"[extract-ideas] Error descargando PDF: {r.status_code} - {r.text[:200]}")
+                return JSONResponse(content={"error": f"Error descargando PDF: {r.status_code}"}, status_code=400)
             tmp.write(r.content)
             tmp_path = tmp.name
-        # Llamar al agente de resumen
-        _, result = summarize_pdf(tmp_path)
+            print(f"[extract-ideas] PDF guardado temporalmente en: {tmp_path}")
+
+        # Llamar al agente de resumen con soporte para WebSocket
+        try:
+            print(f"[extract-ideas] Llamando a summarize_pdf para: {tmp_path}")
+            _, result = summarize_pdf(tmp_path, ws=websocket, ws_id=ws_id)
+        except Exception as e:
+            os.unlink(tmp_path)
+            print(f"[extract-ideas] Error en summarize_pdf: {str(e)}")
+            return JSONResponse(content={"error": f"Error en summarize_pdf: {str(e)}"}, status_code=500)
+
         os.unlink(tmp_path)
+        print(f"[extract-ideas] Extracción completada correctamente para: {pdf_url}")
         return JSONResponse(content=result)
     except Exception as e:
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+        print(f"[extract-ideas] Error general: {str(e)}")
+        return JSONResponse(content={"error": f"Error general: {str(e)}"}, status_code=500)
 
 if __name__ == "__main__":
     import uvicorn

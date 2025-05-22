@@ -54,11 +54,12 @@ import {
 import Sidebar from '../components/Sidebar';
 import Topbar from '../components/Topbar';
 import { SearchResults } from '../components/SearchResults';
+import { Article } from '../components/SelectedArticlesPanel';
 
 const DRAWER_WIDTH_OPEN = 266;
 const DRAWER_WIDTH_COLLAPSED = 64;
 
-const SearchPage: React.FC = (): React.ReactElement => {
+export default function SearchPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -74,6 +75,7 @@ const SearchPage: React.FC = (): React.ReactElement => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [sourcesOpen, setSourcesOpen] = useState(true);
   const [collectionsOpen, setCollectionsOpen] = useState(true);
+  const [selectedArticles, setSelectedArticles] = useState<Article[]>([]);
 
   const drawerWidth = sidebarOpen ? DRAWER_WIDTH_OPEN : DRAWER_WIDTH_COLLAPSED;
 
@@ -129,6 +131,8 @@ const SearchPage: React.FC = (): React.ReactElement => {
         open={sidebarOpen}
         setOpen={setSidebarOpen}
         drawerWidth={drawerWidth}
+        selectedArticles={selectedArticles}
+        setSelectedArticles={setSelectedArticles}
       />
       <Box
         sx={{
@@ -142,7 +146,10 @@ const SearchPage: React.FC = (): React.ReactElement => {
       >
         <Topbar />
         <Box sx={{ flex: 1, p: 4, overflow: 'auto' }}>
-          <SearchResults />
+          <SearchResults
+            selectedArticles={selectedArticles}
+            setSelectedArticles={setSelectedArticles}
+          />
         </Box>
       </Box>
     </Box>
@@ -157,5 +164,3 @@ declare module '@mui/material/styles' {
     };
   }
 }
-
-export default SearchPage;

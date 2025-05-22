@@ -7,6 +7,8 @@ import HistoryIcon from '@mui/icons-material/History';
 import AllInclusiveIcon from '@mui/icons-material/AllInclusive';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
+import SelectedArticlesPanel from './SelectedArticlesPanel';
+import type { Article } from './SelectedArticlesPanel';
 
 const sources = [
   { key: 'arxiv', label: 'Arxiv', icon: <SourceIcon /> },
@@ -14,12 +16,22 @@ const sources = [
   { key: 'wikipedia', label: 'Wikipedia', icon: <SourceIcon /> },
 ];
 
-export default function Sidebar({ selectedSources, setSelectedSources, open, setOpen, drawerWidth }: {
+export default function Sidebar({
+  selectedSources,
+  setSelectedSources,
+  open,
+  setOpen,
+  drawerWidth,
+  selectedArticles,
+  setSelectedArticles,
+}: {
   selectedSources: string[],
   setSelectedSources: (sources: string[]) => void,
   open: boolean,
   setOpen: (open: boolean) => void,
-  drawerWidth: number
+  drawerWidth: number,
+  selectedArticles: Article[],
+  setSelectedArticles: React.Dispatch<React.SetStateAction<Article[]>>
 }) {
   const [sourcesOpen, setSourcesOpen] = useState(open);
 
@@ -54,20 +66,27 @@ export default function Sidebar({ selectedSources, setSelectedSources, open, set
   // Hacer toda la caja de la hamburguesa clickeable
   const handleHamburgerClick = () => setOpen(!open);
 
+  // Mostrar el panel solo si hay artículos seleccionados
+  const showSelectedPanel = selectedArticles && selectedArticles.length > 0;
+  const [collapsed, setCollapsed] = useState(false);
+
   return (
     <Drawer
       variant="permanent"
       open={open}
       PaperProps={{
         sx: {
-          width: open ? drawerWidth : 56, // <--- AQUÍ defines el ancho expandido y colapsado
+          width: open ? drawerWidth : 56,
           bgcolor: 'background.paper',
           borderRight: '1px solid',
           borderColor: 'divider',
           transition: 'width 0.5s',
           zIndex: 1200,
           overflowX: 'hidden',
-          boxSizing: 'border-box'
+          boxSizing: 'border-box',
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column'
         }
       }}
       ModalProps={{
@@ -259,6 +278,65 @@ export default function Sidebar({ selectedSources, setSelectedSources, open, set
           </ListItem>
         </Tooltip>
       </List>
+      {/* Panel de artículos seleccionados, visible solo si hay selección, SIEMPRE en la parte inferior */}
+      <Box sx={{
+        mt: 'auto',
+        mb: 1,
+        px: open ? 1 : 0,
+        width: '100%',
+        minHeight: showSelectedPanel && open && !collapsed ? 80 : 0,
+        transition: 'all 0.3s cubic-bezier(.4,0,.2,1)',
+        opacity: showSelectedPanel && open && !collapsed ? 1 : 0.5,
+        pointerEvents: showSelectedPanel && open ? 'auto' : 'none',
+        position: 'relative'
+      }}>
+        {(showSelectedPanel && open && !collapsed) ? (
+          <>
+            <SelectedArticlesPanel
+              selectedArticles={selectedArticles}
+              setSelectedArticles={setSelectedArticles}
+              sidebarMode
+              onExpandPanel={() => setCollapsed(false)}
+            />
+            {/* Botón para colapsar, solo abajo y visible */}
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
+              <IconButton
+                size="small"
+                onClick={() => setCollapsed(true)}
+                sx={{
+                  bgcolor: 'background.paper',
+                  border: 1,
+                  borderColor: 'divider',
+                  boxShadow: 1,
+                  transition: 'transform 0.2s',
+                }}
+                title="Ocultar artículos seleccionados"
+              >
+                <ExpandMore />
+              </IconButton>
+            </Box>
+          </>
+        ) : null}
+        {/* Botón para expandir cuando está colapsado */}
+        {(showSelectedPanel && open && collapsed) && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
+            <IconButton
+              size="small"
+              onClick={() => setCollapsed(false)}
+              sx={{
+                bgcolor: 'background.paper',
+                border: 1,
+                borderColor: 'divider',
+                boxShadow: 1,
+                transition: 'transform 0.2s',
+              }}
+              title="Mostrar artículos seleccionados"
+            >
+              <ExpandLess />
+            </IconButton>
+          </Box>
+        )}
+      </Box>
     </Drawer>
   );
 }
