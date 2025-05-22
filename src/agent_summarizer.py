@@ -4,7 +4,7 @@ import re
 import requests
 import json
 import PyPDF2
-from config import LLM_BASE_URL, LLM_API_KEY, LLM_MODEL
+from config import LLM_BASE_URL, LLM_API_KEY, LLM_MODEL, LLM_BASE_URL_OPENAI, LLM_API_KEY_OPENAI, LLM_MODEL_OPENAI
 
 def extract_full_text_from_pdf(pdf_path):
     """
@@ -16,7 +16,7 @@ def extract_full_text_from_pdf(pdf_path):
         for page in reader.pages:
             page_text = page.extract_text() or ""
             text += page_text + "\n"
-    return text[:200]
+    return text  # <-- Devuelve todo el texto, no solo los primeros 200 caracteres
 
 def call_llm_for_summary(text, stream_placeholder=None):
     """
@@ -36,30 +36,30 @@ def call_llm_for_summary(text, stream_placeholder=None):
         "ideas principales, metodologías, comparaciones, algoritmos, etc. "
         "Retorna tu respuesta en formato JSON con las claves: "
         "{ 'main_ideas': [...], 'methods': [...], 'comparisons': [...], 'algorithms': [...], 'other': [...] } "
-        "Sin nada adicional."
+        "Sin nada adicional. RECUERDA, DEBES RESPONDER EN ESPAÑOL."
     )
     user_prompt = text
 
     payload = {
-        "model": LLM_MODEL,
+        "model": LLM_MODEL_OPENAI,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ],
-        "max_tokens": 1500,
+        "max_tokens": None,
         "n": 1,
         "temperature": 0,
         "stream": True
     }
     headers = {
-        "Authorization": f"Bearer {LLM_API_KEY}",
+        "Authorization": f"Bearer {LLM_API_KEY_OPENAI}",
         "Content-Type": "application/json"
     }
 
     if stream_placeholder:
         stream_placeholder.text("Procesando Prompt de Extracción. Espere por favor...")
 
-    response = requests.post(LLM_BASE_URL + "/chat/completions", json=payload, headers=headers, stream=True)
+    response = requests.post(LLM_BASE_URL_OPENAI + "/v1/chat/completions", json=payload, headers=headers, stream=True)
     if response.status_code != 200:
         raise Exception(f"Error en la llamada al LLM: {response.status_code} {response.text}")
 

@@ -1,7 +1,7 @@
 # agent_congruence.py
 import json
 import requests
-from config import LLM_BASE_URL, LLM_API_KEY, LLM_MODEL
+from config import LLM_BASE_URL, LLM_API_KEY, LLM_MODEL, LLM_BASE_URL_OPENAI, LLM_API_KEY_OPENAI, LLM_MODEL_OPENAI
 import re
 
 def call_llm_for_congruence(summaries, stream_placeholder=None):
@@ -35,23 +35,23 @@ def call_llm_for_congruence(summaries, stream_placeholder=None):
     prompt_text += "\n---\nGenera únicamente el JSON solicitado."
 
     payload = {
-        "model": LLM_MODEL,
+        "model": LLM_MODEL_OPENAI,
         "messages": [
             {"role": "system", "content": "Eres un experto en análisis de papers para material educativo."},
             {"role": "user", "content": prompt_text}
         ],
-        "max_tokens": 1000,
+        "max_tokens": None,
         "n": 1,
         "temperature": 0,
         "stream": True
     }
     headers = {
-        "Authorization": f"Bearer {LLM_API_KEY}",
+        "Authorization": f"Bearer {LLM_API_KEY_OPENAI}",
         "Content-Type": "application/json"
     }
     if stream_placeholder:
         stream_placeholder.text("Procesando Prompt de Congruencia. Espere por favor...")
-    response = requests.post(LLM_BASE_URL + "/chat/completions", json=payload, headers=headers, stream=True)
+    response = requests.post(LLM_BASE_URL_OPENAI + "/v1/chat/completions", json=payload, headers=headers, stream=True)
     if response.status_code != 200:
         raise Exception(f"Error en la llamada al LLM para congruencia: {response.status_code} {response.text}")
 
