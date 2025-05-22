@@ -102,7 +102,11 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
   const [status, setStatus] = useState<string>('');
   const [sources, setSources] = useState<string[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
-  const resultsContainerRef = useRef<HTMLDivElement>(null);
+
+  // Sincronizar los checks con los artículos seleccionados desde el panel
+  useEffect(() => {
+    setSelected(selectedArticles.map(a => a.id));
+  }, [selectedArticles]);
 
   // NUEVO: controles para tipo de búsqueda y número de resultados
   const [maxResults, setMaxResults] = useState(10);
@@ -255,6 +259,8 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
     }
     return sorted;
   }, [results, sources, sortBy, filterByDate]);
+
+  const resultsContainerRef = useRef<HTMLDivElement>(null);
 
   return (
     <Box sx={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>

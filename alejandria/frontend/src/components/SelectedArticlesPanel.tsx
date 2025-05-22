@@ -105,6 +105,11 @@ const SelectedArticlesPanel = ({
     return () => remove();
   }, [addMessageHandler, wsId]);
 
+  // Eliminar artículo de la selección (sin colapsar el panel)
+  const handleRemoveArticle = (id: string) => {
+    setSelectedArticles(prev => prev.filter(a => a.id !== id));
+  };
+
   // Si el panel está minimizado y está en modo sidebar, muestra un botón flotante para restaurar
   if (!open && sidebarMode) {
     // Elimina el botón con ChevronLeftIcon (hacia la izquierda)
@@ -115,25 +120,20 @@ const SelectedArticlesPanel = ({
   if (sidebarMode) {
     return open ? (
       <Box sx={{ p: 1, bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-          <Typography variant="subtitle1" sx={{ flex: 1, fontWeight: 600 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'center' }}>
+          <Typography
+            variant="subtitle1"
+            sx={{ flex: 1, fontWeight: 600, textAlign: 'center' }}
+          >
             Seleccionados ({selectedArticles.length})
           </Typography>
-          <IconButton
-            size="small"
-            onClick={handleMinimize}
-            sx={{ ml: 1 }}
-            title="Minimizar panel"
-          >
-        
-          </IconButton>
         </Box>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
           {selectedArticles.map((art, idx) => (
             <Chip
               key={art.id}
               label={`${idx + 1}. ${art.title}`}
-              onDelete={handleMinimize}
+              onDelete={() => handleRemoveArticle(art.id)}
               sx={{ maxWidth: 260, mb: 0.5 }}
             />
           ))}
@@ -171,24 +171,13 @@ const SelectedArticlesPanel = ({
       }}
       PaperProps={{ sx: { p: 2 } }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6" sx={{ flex: 1 }}>Artículos seleccionados ({selectedArticles.length})</Typography>
-        <IconButton
-          size="small"
-          onClick={handleMinimize}
-          sx={{ ml: 2 }}
-          title="Minimizar panel"
-        >
-          <ChevronLeftIcon />
-        </IconButton>
-      </Box>
       <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
         {selectedArticles.map((art, idx) => (
           <Chip
             key={art.id}
             label={`${idx + 1}. ${art.title}`}
-            // No elimina, solo minimiza
-            onDelete={handleMinimize}
+            // Elimina de la selección sin colapsar el panel
+            onDelete={() => handleRemoveArticle(art.id)}
             sx={{ maxWidth: 300 }}
           />
         ))}
