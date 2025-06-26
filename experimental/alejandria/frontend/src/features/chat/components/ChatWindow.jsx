@@ -66,26 +66,55 @@ export default function ChatWindow() {
   return (
     <div style={{
       minHeight: '100vh',
+      minWidth: '100vw',
+      width: '100vw',
+      height: '100vh',
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      zIndex: 0,
       display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
+      flexDirection: 'row', // Cambia a row para sidebar
+      alignItems: 'stretch',
+      justifyContent: 'flex-start',
       fontFamily: 'Inter, Arial, sans-serif',
       color: '#fff',
       background: 'linear-gradient(120deg, #eaf6ff 0%, #fafdff 100%)',
+      overflow: 'hidden',
     }}>
+      {/* Sidebar para historial */}
       <div style={{
+        width: 320,
+        minWidth: 220,
+        maxWidth: 400,
+        background: 'rgba(30,40,60,0.97)',
+        borderRight: '2px solid #b3e0ff',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: '48px 0 0 0',
+        gap: 24,
+        boxShadow: '2px 0 16px #b3e0ff22',
+      }}>
+        <div style={{fontWeight:900, fontSize:28, color:'#b3e0ff', marginBottom:16, letterSpacing:1}}>Historial</div>
+        <div style={{color:'#fff', opacity:0.7, fontSize:16, textAlign:'center', padding:'0 18px'}}>
+          Aquí aparecerán tus conversaciones previas.
+        </div>
+        {/* Aquí se listarán las conversaciones en el futuro */}
+      </div>
+      {/* Main chat area */}
+      <div style={{
+        flex: 1,
         background: 'rgba(30,40,60,0.95)',
-        borderRadius: 32,
+        borderRadius: 0,
         boxShadow: '0 8px 32px 0 rgba(31,38,135,0.37)',
         padding: 48,
-        width: 1200,
-        maxWidth: '99vw',
-        minHeight: 900,
-        marginBottom: 48,
+        minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
         gap: 32,
+        alignItems: 'center',
+        justifyContent: 'flex-start',
       }}>
         <h1 style={{
           textAlign: 'center',
@@ -112,7 +141,7 @@ export default function ChatWindow() {
         </h2>
         <div style={{
           minHeight: 350,
-          maxHeight: 600,
+          maxHeight: '70vh',
           overflowY: 'auto',
           background: 'rgba(255,255,255,0.92)',
           borderRadius: 28,
@@ -124,6 +153,9 @@ export default function ChatWindow() {
           flexDirection: 'column',
           gap: 32,
           transition: 'background 0.5s',
+          width: 900,
+          maxWidth: '90vw',
+          margin: '0 auto 32px',
         }}>
           {loading && (
             <div style={{textAlign:'center',margin:'32px 0'}}>
@@ -166,10 +198,15 @@ export default function ChatWindow() {
               fontFamily: 'Poppins, Arial, sans-serif',
               textTransform: 'none',
               lineHeight: 1.6,
-              whiteSpace: 'pre-line',
             }}>
               <span style={{fontSize: 38, marginRight: 12, color:'#1a3a5e', fontWeight:900}}>🔗</span>
-              {finalResponse}
+              <span
+                dangerouslySetInnerHTML={{
+                  __html: finalResponse
+                    .replace(/\n\n/g, '<br><br>')
+                    .replace(/\n/g, '<br>')
+                }}
+              />
               <span style={{fontSize: 38, marginLeft: 12, color: '#1a3a5e', fontWeight:900}}>★</span>
             </div>
           )}
@@ -179,13 +216,14 @@ export default function ChatWindow() {
             </div>
           )}
         </div>
-        <div style={{display:'flex',gap:24,marginTop:8,marginBottom:8,justifyContent:'center'}}>
+        <div style={{display:'flex',gap:24,marginTop:8,marginBottom:8,justifyContent:'center', width:'100%'}}>
           <textarea
             value={message}
             onChange={e => setMessage(e.target.value)}
             rows={3}
             style={{
-              width: 600,
+              width: 700,
+              maxWidth: '95vw',
               borderRadius: 12,
               border: 'none',
               padding: 16,
@@ -195,9 +233,16 @@ export default function ChatWindow() {
               resize: 'none',
               boxShadow:'0 2px 8px #0072ff22',
               marginRight: 12,
+              transition: 'width 0.2s',
             }}
             placeholder="Escribe tu mensaje..."
             disabled={loading}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+              }
+            }}
           />
           <button
             onClick={sendMessage}
@@ -223,9 +268,9 @@ export default function ChatWindow() {
         </div>
         {error && <div style={{ color: '#ff6b6b', marginTop: 18, textAlign: 'center', fontSize:18 }}>{error}</div>}
       </div>
-      <div style={{ color: '#aaa', fontSize: 15, marginTop: 18, opacity: 0.7 }}>
+      {/* <div style={{ color: '#aaa', fontSize: 15, marginTop: 18, opacity: 0.7 }}>
         Alejandría Multiagente Experimental · {new Date().getFullYear()}
-      </div>
+      </div> */}
       <style>{`
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800;900&display=swap');
 @keyframes fadeIn { from { opacity: 0; transform: translateY(30px);} to { opacity: 1; transform: none; } }

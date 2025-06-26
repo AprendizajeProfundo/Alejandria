@@ -64,8 +64,10 @@ class OrchestratorService:
 
         # Lanzar todos los agentes en paralelo
         await asyncio.gather(*(run_agent(i, agent) for i, agent in enumerate(agents)))
-        # Esperar a que todos terminen y pasar sus análisis limpios al manager
-        combined = "\n\n".join([c for c in agent_contents if c])
+        # Formatear la entrada al manager con bloques claros
+        combined = "\n\n".join(
+            f"--- {agent.name} ---\n{content.strip()}" for agent, content in zip(agents, agent_contents) if content
+        )
         manager = self.registry.get("manager")
         manager_req = UserMessage(user_id=req.user_id, message=combined)
 
