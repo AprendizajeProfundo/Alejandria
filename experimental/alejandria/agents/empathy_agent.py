@@ -4,8 +4,8 @@ from dotenv import load_dotenv
 
 # Importa AssistantAgent de autogen_agentchat.agents (fallback comprobado)
 from autogen_agentchat.agents import AssistantAgent
-from domain.base_agent import BaseAgent
-from domain.agent_response import AgentResponse
+from alejandria.domain.base_agent import BaseAgent
+from alejandria.domain.agent_response import AgentResponse
 
 # Carga variables de entorno
 load_dotenv()

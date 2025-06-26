@@ -2,8 +2,8 @@ import os
 import logging
 from dotenv import load_dotenv
 from autogen.agentchat.realtime.experimental.realtime_agent import RealtimeAgent
-from domain.base_agent import BaseAgent
-from domain.agent_response import AgentResponse
+from alejandria.domain.base_agent import BaseAgent
+from alejandria.domain.agent_response import AgentResponse
 
 # Carga variables de entorno
 load_dotenv()
