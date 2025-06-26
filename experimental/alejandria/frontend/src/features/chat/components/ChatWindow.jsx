@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
 
 export default function ChatWindow() {
   const [message, setMessage] = useState('');
@@ -172,7 +173,9 @@ export default function ChatWindow() {
               {Object.entries(agentResponses).map(([agent, text]) => (
                 <div key={agent} style={{marginBottom:24, background:'#eaf6ff', borderRadius:16, padding:'18px 20px', color:'#1a3a5e', boxShadow:'0 2px 12px #b3e0ff33'}}>
                   <div style={{fontWeight:800, color:'#0072ff', fontSize:18, marginBottom:8, letterSpacing:1}}>{agent}</div>
-                  <div style={{fontSize:16, whiteSpace:'pre-line'}}>{text}</div>
+                  <div style={{fontSize:16}}>
+                    <ReactMarkdown>{text}</ReactMarkdown>
+                  </div>
                 </div>
               ))}
             </div>
@@ -200,13 +203,7 @@ export default function ChatWindow() {
               lineHeight: 1.6,
             }}>
               <span style={{fontSize: 38, marginRight: 12, color:'#1a3a5e', fontWeight:900}}>🔗</span>
-              <span
-                dangerouslySetInnerHTML={{
-                  __html: finalResponse
-                    .replace(/\n\n/g, '<br><br>')
-                    .replace(/\n/g, '<br>')
-                }}
-              />
+              <ReactMarkdown>{finalResponse}</ReactMarkdown>
               <span style={{fontSize: 38, marginLeft: 12, color: '#1a3a5e', fontWeight:900}}>★</span>
             </div>
           )}
