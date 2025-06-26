@@ -6,8 +6,8 @@ from alejandria.domain.base_agent import BaseAgent
 from alejandria.domain.agent_response import AgentResponse
 from alejandria.agents.prompts import SOCIAL_SYSTEM_MESSAGE
 import logging
-import asyncio
 import inspect
+from autogen_agentchat.messages import ModelClientStreamingChunkEvent
 
 load_dotenv()
 
@@ -23,10 +23,6 @@ class AutoGenSocialAgent(BaseAgent):
             "SOCIAL_SYSTEM_MESSAGE",
             SOCIAL_SYSTEM_MESSAGE,
         )
-        logging.warning(
-            f"[AutoGenSocialAgent] Inicializando con modelo: "
-            f"{llm_model}, API key: {openai_api_key[:8]}... (oculta)"
-        )
         self.model_client = OpenAIChatCompletionClient(
             model=llm_model, api_key=openai_api_key
         )
@@ -34,6 +30,7 @@ class AutoGenSocialAgent(BaseAgent):
             name="SocialAssistant",
             model_client=self.model_client,
             system_message=social_prompt,
+            model_client_stream=True,  # Habilita streaming real de tokens
         )
 
     async def act(self, req):
@@ -66,40 +63,29 @@ class AutoGenSocialAgent(BaseAgent):
 
     async def act_stream(self, req, on_token):
         try:
-            response = await self.assistant.run(task=req.message)
-            content = None
-            if hasattr(response, "messages") and isinstance(response.messages, list):
-                for msg in reversed(response.messages):
-                    if (
-                        hasattr(msg, "source")
-                        and msg.source == self.assistant.name
-                        and hasattr(msg, "content")
-                        and msg.content
-                    ):
-                        content = msg.content
-                        break
-            elif isinstance(response, list):
-                for msg in reversed(response):
-                    if hasattr(msg, "content") and msg.content:
-                        content = msg.content
-                        break
-            elif hasattr(response, "content") and response.content:
-                content = response.content
-            if not content:
-                content = "[AutoGen] No se pudo extraer respuesta textual."
-            for token in content.split():
-                await asyncio.sleep(0.01)
-                if on_token and inspect.iscoroutinefunction(on_token):
-                    await on_token(token + " ")
-                elif on_token:
-                    on_token(token + " ")
-            return AgentResponse(agent_name=self.name, content=content, meta={})
+            buffer = ""
+            async for event in self.assistant.run_stream(task=req.message):
+                if isinstance(event, ModelClientStreamingChunkEvent):
+                    token = event.content
+                    buffer += token
+                    if on_token:
+                        if inspect.iscoroutinefunction(on_token):
+                            await on_token(token)
+                        else:
+                            on_token(token)
+                elif hasattr(event, "content") and isinstance(getattr(event, "content", None), str):
+                    buffer += event.content
+            return AgentResponse(
+                agent_name=self.name,
+                content=buffer,
+                meta={},
+            )
         except Exception as e:
-            logging.error("[AutoGenSocialAgent] ERROR: %s", e)
-            if on_token and inspect.iscoroutinefunction(on_token):
-                await on_token(f"[AutoGen] Error: {e}")
-            elif on_token:
-                on_token(f"[AutoGen] Error: {e}")
+            if on_token:
+                if inspect.iscoroutinefunction(on_token):
+                    await on_token(f"[AutoGen] Error: {e}")
+                else:
+                    on_token(f"[AutoGen] Error: {e}")
             return AgentResponse(
                 agent_name=self.name,
                 content=f"[AutoGen] Error: {e}",

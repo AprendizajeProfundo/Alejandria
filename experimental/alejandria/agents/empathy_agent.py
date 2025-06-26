@@ -50,7 +50,9 @@ class EmpathyAgent(BaseAgent):
             def cb(token):
                 nonlocal buffer
                 buffer += token
-                on_token(token)
+                logging.info(f"[EmpathyAgent][stream] {token!r}")
+                if on_token:
+                    on_token(token)
 
             await self.agent.run(task=req.message, stream=True, on_token=cb)
             return AgentResponse(
@@ -60,7 +62,8 @@ class EmpathyAgent(BaseAgent):
             )
         except Exception as e:
             logging.error(f"[EmpathyAgent] ERROR: {e}")
-            on_token(f"[AutoGen] Error: {e}")
+            if on_token:
+                on_token(f"[AutoGen] Error: {e}")
             return AgentResponse(
                 agent_name=self.name, content=f"[AutoGen] Error: {e}", meta={}
             )

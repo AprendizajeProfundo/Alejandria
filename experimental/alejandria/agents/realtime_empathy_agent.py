@@ -65,11 +65,14 @@ class RealtimeEmpathyAgent(BaseAgent):
                 if hasattr(event, "content"):
                     token = event.content
                     buffer += token
-                    on_token(token)
+                    logging.info(f"[RealtimeEmpathyAgent][stream] {token!r}")
+                    if on_token:
+                        on_token(token)
             return AgentResponse(agent_name=self.name, content=buffer, meta={})
         except Exception as e:
             logging.error(f"[RealtimeEmpathyAgent] ERROR: {e}")
-            on_token(f"[RealtimeAgent] Error: {e}")
+            if on_token:
+                on_token(f"[RealtimeAgent] Error: {e}")
             return AgentResponse(
                 agent_name=self.name,
                 content=f"[RealtimeAgent] Error: {e}",
