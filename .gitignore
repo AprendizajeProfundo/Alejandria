@@ -1,0 +1,15 @@
+# Ignorar archivos de entorno y claves
+experimental/alejandria/.env
+alejandria/frontend/.env
+alejandria/frontend/.env.local
+# Ignorar dependencias y archivos temporales
+**/node_modules/
+**/experimental/alejandria/frontend/node_modules/
+**/__pycache__/
+**/*.pyc
+**/experimental/alejandria/.mypy_cache/
+**/experimental/alejandria/.pytest_cache/
+**/*.pyo
+**/*.pyd
+**/*.swp
+**/.DS_Store
