@@ -28,7 +28,7 @@ class OrchestratorService:
             meta=meta,
         )
 
-    async def handle_stream(self, req: UserMessage, on_token):
+    async def handle_stream(self, req: UserMessage, on_token, history=None):
         agents = [
             self.registry.get("autogen_empathy"),
             self.registry.get("autogen_social"),
@@ -36,9 +36,24 @@ class OrchestratorService:
         ]
         agent_contents = [None] * len(agents)
 
+        # El historial es una lista de dicts: {from, text, agent?}
+        if history is None:
+            history = []
+        def build_agent_context():
+            context = []
+            for h in history:
+                if h.get('from') == 'user':
+                    context.append(f"Usuario: {h['text']}")
+                elif h.get('from') == 'agent' and h.get('agent'):
+                    context.append(f"{h['agent']}: {h['text']}")
+            return '\n'.join(context)
+
         async def run_agent(idx, agent):
             buffer = ""
-
+            # El contexto de cada agente incluye TODO el historial
+            full_message = build_agent_context() + ("\n" if history else "") + req.message
+            print(f"[Orchestrator] Contexto para {agent.name}:\n{full_message}\n{'-'*40}")
+            agent_req = UserMessage(user_id=req.user_id, message=full_message)
             async def agent_on_token(token, agent_name=agent.name):
                 nonlocal buffer
                 buffer += token
@@ -58,8 +73,7 @@ class OrchestratorService:
                             "is_manager": False,
                         }
                     )
-
-            result = await agent.act_stream(req, agent_on_token)
+            result = await agent.act_stream(agent_req, agent_on_token)
             agent_contents[idx] = result.content
 
         # Lanzar todos los agentes en paralelo
@@ -71,7 +85,11 @@ class OrchestratorService:
             format_agent_block(agent, content) for agent, content in zip(agents, agent_contents) if content
         )
         manager = self.registry.get("manager")
-        manager_req = UserMessage(user_id=req.user_id, message=combined)
+        # El contexto del manager también incluye TODO el historial
+        manager_context = build_agent_context()
+        manager_full_message = manager_context + ("\n" if manager_context else "") + combined
+        print(f"[Orchestrator] Contexto para manager:\n{manager_full_message}\n{'='*40}")
+        manager_req = UserMessage(user_id=req.user_id, message=manager_full_message)
 
         async def manager_on_token(token):
             if on_token and inspect.iscoroutinefunction(on_token):

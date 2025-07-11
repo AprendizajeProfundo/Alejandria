@@ -17,13 +17,23 @@ export default function ChatWindow() {
     setLoading(true);
     setError(null);
     setFinalResponse(null); // Reset final
+    // Agrega el mensaje del usuario al historial local
     setHistory(h => [...h, { from: 'user', text: message }]);
     setAgentResponses({}); // Reset respuestas
     if (wsRef.current) wsRef.current.close();
     wsRef.current = new window.WebSocket('ws://localhost:8000/v1/ws/chat');
     agentBuffers.current = {}; // reset buffers
     wsRef.current.onopen = () => {
-      wsRef.current.send(JSON.stringify({ user_id: 'demo', message }));
+      // Enviar historial junto con el mensaje
+      const payload = {
+        user_id: 'demo',
+        message,
+        history: [
+          ...history,
+          { from: 'user', text: message }
+        ]
+      };
+      wsRef.current.send(JSON.stringify(payload));
     };
     wsRef.current.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -37,8 +47,12 @@ export default function ChatWindow() {
       agentBuffers.current[agent] += data.content;
       if (!data.is_manager) {
         setAgentResponses(prev => ({ ...prev, [agent]: agentBuffers.current[agent] }));
+        // Guarda en historial la respuesta del agente (acumulativo)
+        setHistory(h => [...h, { from: 'agent', agent, text: agentBuffers.current[agent] }]);
       } else {
         setFinalResponse(agentBuffers.current[agent]);
+        // Guarda en historial la respuesta del manager (acumulativo)
+        setHistory(h => [...h, { from: 'agent', agent: 'manager', text: agentBuffers.current[agent] }]);
       }
     };
     wsRef.current.onerror = (e) => {
@@ -63,6 +77,34 @@ export default function ChatWindow() {
       document.body.style.letterSpacing = '';
     };
   }, []);
+
+  // Mostrar historial conversacional (usuario y agentes)
+  const renderConversationHistory = () => (
+    <div style={{
+      width: '100%',
+      maxHeight: 200,
+      overflowY: 'auto',
+      background: '#fafdff',
+      borderRadius: 12,
+      marginBottom: 18,
+      padding: '16px 24px',
+      boxShadow: '0 2px 8px #b3e0ff22',
+      fontSize: 16,
+      color: '#1a3a5e',
+      border: '1px solid #b3e0ff',
+    }}>
+      {history.map((item, idx) => (
+        <div key={idx} style={{marginBottom:8}}>
+          {item.from === 'user' ? (
+            <span style={{fontWeight:700, color:'#0072ff'}}>Tú: </span>
+          ) : (
+            <span style={{fontWeight:700, color:'#00b894'}}>{item.agent || 'Agente'}: </span>
+          )}
+          <span>{item.text}</span>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <div style={{
@@ -213,7 +255,7 @@ export default function ChatWindow() {
             </div>
           )}
         </div>
-        <div style={{display:'flex',gap:24,marginTop:8,marginBottom:8,justifyContent:'center', width:'100%'}}>
+        <div style={{display:'flex',gap:24,marginTop:8,marginBottom:8,justifyContent:'center', width:'100%', flexWrap:'wrap'}}>
           <textarea
             value={message}
             onChange={e => setMessage(e.target.value)}
@@ -238,11 +280,12 @@ export default function ChatWindow() {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 sendMessage();
+                setMessage("");
               }
             }}
           />
           <button
-            onClick={sendMessage}
+            onClick={() => { sendMessage(); setMessage(""); }}
             disabled={loading || !message.trim()}
             style={{
               minWidth: 180,
@@ -258,6 +301,9 @@ export default function ChatWindow() {
               transition: 'background 0.2s',
               boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
               marginLeft: 12,
+              maxWidth: 220,
+              width: '100%',
+              flex: '1 1 180px',
             }}
           >
             {loading ? 'Enviando...' : 'Enviar'}
