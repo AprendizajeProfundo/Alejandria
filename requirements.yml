@@ -26,7 +26,7 @@ dependencies:
     - openpyxl
     - pillow
     - plotly
-    - pyautogen[ollama]
+    - ag2[ollama]
     - PyMuPDF
     - PyPDF2
     - pydot
